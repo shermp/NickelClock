@@ -19,6 +19,8 @@ typedef QWidget ReadingFooter;
 typedef QLabel TimeLabel;
 typedef QLabel TouchLabel;
 
+enum class TimePos {Left, Right};
+
 void (*ReadingView__UpdateProgressHeader)(ReadingView *_this, QString *p1, QString *p2);
 TimeLabel *(*TimeLabel__TimeLabel)(TimeLabel *_this, QWidget *parent);
 
@@ -57,9 +59,7 @@ NickelHook(
     .dlsym = NickelClockDlsym,
 )
 
-extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this, QString *p1, QString *p2) {
-    // Find header
-    ReadingFooter *rf = _this->findChild<ReadingFooter*>("header");
+static void add_time_to_footer(ReadingFooter *rf, TimePos position) {
     QLayout *l = nullptr;
     if (rf && !rf->property(nc_qt_property).isValid() && (l = rf->layout())) {
         nh_log("ReadingView header layout found");
@@ -68,14 +68,23 @@ extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(Read
         if (hl) {
             nh_log("Adding TimeLabel widget to ReadingView header");
             hl->setStretch(0, 2);
-            // Insert stretch spacer
-            hl->insertStretch(0, 1);
-            // Add a TimeLabel to it
+
             TimeLabel *tl = (TimeLabel*) ::operator new (128); // Actual size 88 bytes
             TimeLabel__TimeLabel(tl, nullptr);
-            hl->addWidget(tl, 1, Qt::AlignRight);
+            if (position == TimePos::Left) {
+                hl->insertWidget(0, tl, 1);
+                hl->addStretch(1);
+            } else {
+                hl->insertStretch(0, 1);
+                hl->addWidget(tl, 1);
+            }
         }
     }
+}
 
+extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this, QString *p1, QString *p2) {
+    // Find header
+    ReadingFooter *rf = _this->findChild<ReadingFooter*>("header");
+    add_time_to_footer(rf, TimePos::Right);
     ReadingView__UpdateProgressHeader(_this, p1, p2);
 }
