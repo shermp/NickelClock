@@ -21,7 +21,7 @@ typedef QLabel TouchLabel;
 
 enum class TimePos {Left, Right};
 
-void (*ReadingView__UpdateProgressHeader)(ReadingView *_this, QString *p1, QString *p2);
+void (*ReadingView__ReaderIsDoneLoading)(ReadingView *_this);
 TimeLabel *(*TimeLabel__TimeLabel)(TimeLabel *_this, QWidget *parent);
 
 static struct nh_info NickelClock = {
@@ -34,10 +34,10 @@ static struct nh_info NickelClock = {
 
 static struct nh_hook NickelClockHook[] = {
     {
-        .sym     = "_ZN11ReadingView20updateProgressHeaderERK7QStringS2_", 
+        .sym     = "_ZN11ReadingView19readerIsDoneLoadingEv", 
         .sym_new = "_nc_set_header_clock",
         .lib     = "libnickel.so.1.0.0",
-        .out     = nh_symoutptr(ReadingView__UpdateProgressHeader),
+        .out     = nh_symoutptr(ReadingView__ReaderIsDoneLoading),
         .desc    = "footer progress update"
     },
     {0},
@@ -96,9 +96,9 @@ static void add_time_to_footer(ReadingFooter *rf, TimePos position) {
     }
 }
 
-extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this, QString *p1, QString *p2) {
+extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) {
     // Find header
     ReadingFooter *rf = _this->findChild<ReadingFooter*>("header");
     add_time_to_footer(rf, TimePos::Right);
-    ReadingView__UpdateProgressHeader(_this, p1, p2);
+    ReadingView__ReaderIsDoneLoading(_this);
 }
