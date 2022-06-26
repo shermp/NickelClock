@@ -58,7 +58,7 @@ No other customisation is available at this time.
 
 If you have disabled your header and/or footer, the clock may not show.
 
-## Compatability
+## Compatibility
 
 NickelClock should be compatible with any Kobo device running a recent 4.x 
 firmware release. It has currently been tested to work on firmware 4.33.
