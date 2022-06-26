@@ -85,7 +85,7 @@ TimePos NCSettings::position()
     }
 }
 
-NCSettings nc_settings;
+NCSettings *nc_settings = nullptr;
 
 void (*ReadingView__ReaderIsDoneLoading)(ReadingView *_this);
 TimeLabel *(*TimeLabel__TimeLabel)(TimeLabel *_this, QWidget *parent);
@@ -118,8 +118,16 @@ static struct nh_dlsym NickelClockDlsym[] = {
     {0},
 };
 
+static int nc_init()
+{
+    nc_settings = new NCSettings();
+    if (!nc_settings)
+        return 1;
+    return 0;
+}
+
 NickelHook(
-    .init  = nullptr,
+    .init  = &nc_init,
     .info  = &NickelClock,
     .hook  = NickelClockHook,
     .dlsym = NickelClockDlsym,
@@ -166,12 +174,12 @@ static void add_time_to_footer(ReadingFooter *rf, TimePos position)
 
 extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) 
 {
-    auto containerName = (nc_settings.placement() == TimePlacement::Header)
+    auto containerName = (nc_settings->placement() == TimePlacement::Header)
                          ? "header" : "footer";
 
     // Find header or footer
     ReadingFooter *rf = _this->findChild<ReadingFooter*>(containerName);
 
-    add_time_to_footer(rf, nc_settings.position());
+    add_time_to_footer(rf, nc_settings->position());
     ReadingView__ReaderIsDoneLoading(_this);
 }
