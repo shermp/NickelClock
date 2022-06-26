@@ -4,10 +4,10 @@
 #include <Qt>
 #include <QWidget>
 #include <QHBoxLayout>
-#include <QFont>
 #include <QFile>
 #include <QLabel>
 #include <QVariant>
+#include <QSettings>
 
 #include <NickelHook.h>
 
@@ -20,6 +20,72 @@ typedef QLabel TimeLabel;
 typedef QLabel TouchLabel;
 
 enum class TimePos {Left, Right};
+enum class TimePlacement {Header, Footer};
+
+#define NICKEL_CLOCK_DIR "/mnt/onboard/.adds/nickelclock"
+
+class NCSettings {
+    public:
+        NCSettings();
+        
+        TimePlacement placement();
+        TimePos position();
+    private:
+        QSettings settings;
+        QString placeKey = "placement";
+        QString posKey = "position";
+        QString placeHeader = "header";
+        QString placeFooter = "footer";
+        QString posLeft = "left";
+        QString posRight = "right";
+
+        void syncSettings();
+};
+
+NCSettings::NCSettings()
+    : settings(NICKEL_CLOCK_DIR "/settings.ini", QSettings::IniFormat)
+{
+    syncSettings();
+}
+
+void NCSettings::syncSettings()
+{
+    settings.sync();
+    QString place = settings.value(placeKey, placeHeader).toString();
+    QString pos = settings.value(posKey, posRight).toString();
+    if (place != placeHeader && place != placeFooter)
+        place = placeHeader;
+    if (pos != posLeft && pos != posRight) {
+        pos = posRight;
+    }
+    settings.setValue(placeKey, place);
+    settings.setValue(posKey, pos);
+    settings.sync();
+}
+
+TimePlacement NCSettings::placement()
+{
+    syncSettings();
+    QString place = settings.value(placeKey).toString();
+    if (place == placeFooter) {
+        return TimePlacement::Footer;
+    } else {
+        return TimePlacement::Header;
+    }
+}
+
+TimePos NCSettings::position()
+{
+    syncSettings();
+    QString pos = settings.value(posKey).toString();
+    if (pos == posLeft) {
+        return TimePos::Left;
+    } else {
+        return TimePos::Right;
+    }
+}
+
+NCSettings nc_settings;
 
 void (*ReadingView__ReaderIsDoneLoading)(ReadingView *_this);
 TimeLabel *(*TimeLabel__TimeLabel)(TimeLabel *_this, QWidget *parent);
@@ -60,7 +126,8 @@ NickelHook(
 )
 
 // Sets the TimeLabel style to the same as the footer text style
-static QString get_time_style() {
+static QString get_time_style() 
+{
     QFile rfStyleFile(":/qss/ReadingFooter.qss");
     if (rfStyleFile.open(QIODevice::ReadOnly)) {
         QString style = rfStyleFile.readAll();
@@ -70,7 +137,8 @@ static QString get_time_style() {
     return "";
 }
 
-static void add_time_to_footer(ReadingFooter *rf, TimePos position) {
+static void add_time_to_footer(ReadingFooter *rf, TimePos position) 
+{
     QLayout *l = nullptr;
     if (rf && !rf->property(nc_qt_property).isValid() && (l = rf->layout())) {
         nh_log("ReadingView header layout found");
@@ -96,9 +164,14 @@ static void add_time_to_footer(ReadingFooter *rf, TimePos position) {
     }
 }
 
-extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) {
-    // Find header
-    ReadingFooter *rf = _this->findChild<ReadingFooter*>("header");
-    add_time_to_footer(rf, TimePos::Right);
+extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) 
+{
+    auto containerName = (nc_settings.placement() == TimePlacement::Header)
+                         ? "header" : "footer";
+
+    // Find header or footer
+    ReadingFooter *rf = _this->findChild<ReadingFooter*>(containerName);
+
+    add_time_to_footer(rf, nc_settings.position());
     ReadingView__ReaderIsDoneLoading(_this);
 }
