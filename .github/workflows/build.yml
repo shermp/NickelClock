@@ -1,0 +1,22 @@
+name: Build
+on: [push, pull_request]
+
+jobs:
+  build_ndb:
+    name: Build NickelClock
+    runs-on: ubuntu-latest
+    container: ghcr.io/pgaskin/nickeltc:1.0
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Build
+      run: make clean && make all koboroot
+
+    - name: Upload KoboRoot
+      uses: actions/upload-artifact@v3
+      with:
+        name: NickelClock
+        path: KoboRoot.tgz
