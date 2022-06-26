@@ -95,8 +95,8 @@ TimeLabel *(*TimeLabel__TimeLabel)(TimeLabel *_this, QWidget *parent);
 static struct nh_info NickelClock = {
     .name           = "NickelClock",
     .desc           = "Set an always displayed clock when reading",
-    .uninstall_flag = "/mnt/onboard/.adds/nc_uninstall",
-    .uninstall_xflag = nullptr,
+    .uninstall_flag = nullptr,
+    .uninstall_xflag = NICKEL_CLOCK_DIR "/uninstall.txt",
     .failsafe_delay = 10
 };
 
@@ -128,11 +128,19 @@ static int nc_init()
     return 0;
 }
 
+static bool nc_uninstall()
+{
+    nh_delete_file(NICKEL_CLOCK_DIR "/settings.ini");
+    nh_delete_dir(NICKEL_CLOCK_DIR);
+    return true;
+}
+
 NickelHook(
     .init  = &nc_init,
     .info  = &NickelClock,
     .hook  = NickelClockHook,
     .dlsym = NickelClockDlsym,
+    .uninstall = &nc_uninstall
 )
 
 // Sets the TimeLabel style to the same as the footer text style
