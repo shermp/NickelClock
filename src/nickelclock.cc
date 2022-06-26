@@ -22,7 +22,9 @@ typedef QLabel TouchLabel;
 enum class TimePos {Left, Right};
 enum class TimePlacement {Header, Footer};
 
-#define NICKEL_CLOCK_DIR "/mnt/onboard/.adds/nickelclock"
+#ifndef NICKEL_CLOCK_DIR
+    #define NICKEL_CLOCK_DIR "/mnt/onboard/.adds/nickelclock"
+#endif
 
 class NCSettings {
     public:
