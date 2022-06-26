@@ -1,0 +1,3 @@
+How to uninstall NickelClock:
+
+Delete this file, and restart your Kobo
