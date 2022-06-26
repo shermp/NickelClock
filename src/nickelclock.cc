@@ -89,7 +89,10 @@ TimePos NCSettings::position()
 
 NCSettings *nc_settings = nullptr;
 
+// This is somewhat arbitrary, but seems a good place to get
+// access to the ReadingView after it has been created.
 void (*ReadingView__ReaderIsDoneLoading)(ReadingView *_this);
+// TimeLabel is what the status bar uses to show the time
 TimeLabel *(*TimeLabel__TimeLabel)(TimeLabel *_this, QWidget *parent);
 
 static struct nh_info NickelClock = {
@@ -155,6 +158,10 @@ static QString get_time_style()
     return "";
 }
 
+// The ReadingFooter uses a QHBoxLayout QLayout with a single widget (the 
+// "caption"), which is a QLabel.
+// We need to add a TimeLabel widget here, and insert some stretchable spacing 
+// to ensure that the caption remains centred. 
 static void add_time_to_footer(ReadingFooter *rf, TimePos position) 
 {
     QLayout *l = nullptr;
@@ -182,6 +189,9 @@ static void add_time_to_footer(ReadingFooter *rf, TimePos position)
     }
 }
 
+// On recent 4.x firmware versions, the header and footer are setup in 
+// Ui_ReadingView::setupUi(). They are ReadingFooter widgets, with names set to 
+// "header" and "footer". This makes it easy to find them with findChild().
 extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) 
 {
     auto containerName = (nc_settings->placement() == TimePlacement::Header)
