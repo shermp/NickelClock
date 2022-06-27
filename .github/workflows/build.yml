@@ -20,3 +20,14 @@ jobs:
       with:
         name: NickelClock
         path: KoboRoot.tgz
+
+    - name: Zip KoboRoot
+      run: zip NickelClock.zip KoboRoot.tgz
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: NickelClock.zip
+        draft: true
+        fail_on_unmatched_files: true
