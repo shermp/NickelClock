@@ -199,6 +199,8 @@ extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(Read
 
     // Find header or footer
     ReadingFooter *rf = _this->findChild<ReadingFooter*>(containerName);
+    if (!rf)
+        nh_log("ReadingFooter '%s' not found in ReadingView", containerName);
 
     add_time_to_footer(rf, nc_settings->position());
     ReadingView__ReaderIsDoneLoading(_this);
