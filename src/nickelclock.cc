@@ -99,7 +99,7 @@ static struct nh_info NickelClock = {
     .name           = "NickelClock",
     .desc           = "Set an always displayed clock when reading",
     .uninstall_flag = nullptr,
-    .uninstall_xflag = NICKEL_CLOCK_DIR "/uninstall.txt",
+    .uninstall_xflag = NICKEL_CLOCK_DIR "/uninstall",
     .failsafe_delay = 10
 };
 
