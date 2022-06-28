@@ -221,7 +221,7 @@ static void add_time_to_footer(ReadingFooter *rf, TimePos position)
             TimeLabel *tl = (TimeLabel*) ::operator new (128); // Actual size 88 bytes
             TimeLabel__TimeLabel(tl, nullptr);
             tl->setObjectName(nc_widget_name);
-            auto hAlign = position == TimePos::Left ? Qt::AlignLeft : Qt::AlignCenter;
+            auto hAlign = position == TimePos::Left ? Qt::AlignLeft : Qt::AlignRight;
             tl->setAlignment(hAlign | Qt::AlignVCenter);
             tl->setStyleSheet(get_time_style());
 
