@@ -2,12 +2,15 @@
 #include <cstdlib>
 
 #include <Qt>
+#include <QGuiApplication>
 #include <QWidget>
 #include <QHBoxLayout>
 #include <QFile>
 #include <QLabel>
 #include <QVariant>
 #include <QSettings>
+#include <QMargins>
+#include <QScreen>
 
 #include <NickelHook.h>
 
@@ -28,25 +31,31 @@ enum class TimePlacement {Header, Footer};
 
 class NCSettings {
     public:
-        NCSettings();
+        NCSettings(QRect const& screenGeom);
         
         TimePlacement placement();
         TimePos position();
+        int hMargin();
     private:
         QSettings settings;
         QString placeKey = "placement";
         QString posKey = "position";
+        QString marginKey = "hor_margin";
         QString placeHeader = "header";
         QString placeFooter = "footer";
         QString posLeft = "left";
         QString posRight = "right";
 
+        int maxHMargin = 200;
+
         void syncSettings();
+        void setMaxHMargin(QRect const& screenGeom);
 };
 
-NCSettings::NCSettings()
+NCSettings::NCSettings(QRect const& screenGeom)
     : settings(NICKEL_CLOCK_DIR "/settings.ini", QSettings::IniFormat)
 {
+    setMaxHMargin(screenGeom);
     syncSettings();
 }
 
@@ -55,13 +64,22 @@ void NCSettings::syncSettings()
     settings.sync();
     QString place = settings.value(placeKey, placeHeader).toString();
     QString pos = settings.value(posKey, posRight).toString();
+    QString marginStr = settings.value(marginKey, "-1").toString();
     if (place != placeHeader && place != placeFooter)
         place = placeHeader;
     if (pos != posLeft && pos != posRight) {
         pos = posRight;
     }
+    bool ok = false;
+    int margin = marginStr.toInt(&ok);
+    if (!ok || margin > maxHMargin || margin < 0 ) {
+        marginStr = "-1";
+    } else {
+        marginStr = QString::number(margin);
+    }
     settings.setValue(placeKey, place);
     settings.setValue(posKey, pos);
+    settings.setValue(marginKey, marginStr);
     settings.sync();
 }
 
@@ -85,6 +103,22 @@ TimePos NCSettings::position()
     } else {
         return TimePos::Right;
     }
+}
+
+int NCSettings::hMargin()
+{
+    syncSettings();
+    bool ok = false;
+    int margin = settings.value(marginKey).toString().toInt(&ok);
+    return ok ? margin : -1;
+}
+
+void NCSettings::setMaxHMargin(QRect const& screenGeom)
+{
+    int w = screenGeom.width() < screenGeom.height() ? screenGeom.width()
+                                                     : screenGeom.height();
+    maxHMargin = w / 4;
+    nh_log("screen width: %d, setting margin: %d", w, maxHMargin);
 }
 
 NCSettings *nc_settings = nullptr;
@@ -125,7 +159,9 @@ static struct nh_dlsym NickelClockDlsym[] = {
 
 static int nc_init()
 {
-    nc_settings = new NCSettings();
+    QScreen *scr = QGuiApplication::primaryScreen();
+    QRect const geom = scr->geometry();
+    nc_settings = new NCSettings(geom);
     if (!nc_settings)
         return 1;
     return 0;
@@ -153,6 +189,7 @@ static QString get_time_style()
     if (rfStyleFile.open(QIODevice::ReadOnly)) {
         QString style = rfStyleFile.readAll();
         style.replace("#caption", QString("#%1").arg(nc_widget_name));
+        style = style + QString("\n#%1 {padding: 0px;}").arg(nc_widget_name);
         return style;
     }
     return "";
@@ -171,11 +208,21 @@ static void add_time_to_footer(ReadingFooter *rf, TimePos position)
         QHBoxLayout *hl = qobject_cast<QHBoxLayout*>(l);
         if (hl) {
             nh_log("Adding TimeLabel widget to ReadingView header");
+
+            // Set margins
+            QMargins margin = hl->contentsMargins();
+            int newMargin = nc_settings->hMargin();
+            if (newMargin < 0)
+                newMargin = margin.left() / 10;
+            hl->setContentsMargins(newMargin, margin.top(), newMargin, margin.bottom());
+
             hl->setStretch(0, 2);
 
             TimeLabel *tl = (TimeLabel*) ::operator new (128); // Actual size 88 bytes
             TimeLabel__TimeLabel(tl, nullptr);
             tl->setObjectName(nc_widget_name);
+            auto hAlign = position == TimePos::Left ? Qt::AlignLeft : Qt::AlignCenter;
+            tl->setAlignment(hAlign | Qt::AlignVCenter);
             tl->setStyleSheet(get_time_style());
 
             if (position == TimePos::Left) {
