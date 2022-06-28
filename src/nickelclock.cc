@@ -45,6 +45,7 @@ class NCSettings {
         QString placeFooter = "footer";
         QString posLeft = "left";
         QString posRight = "right";
+        QString marginAuto = "auto";
 
         int maxHMargin = 200;
 
@@ -64,18 +65,20 @@ void NCSettings::syncSettings()
     settings.sync();
     QString place = settings.value(placeKey, placeHeader).toString();
     QString pos = settings.value(posKey, posRight).toString();
-    QString marginStr = settings.value(marginKey, "-1").toString();
+    QString marginStr = settings.value(marginKey, marginAuto).toString();
     if (place != placeHeader && place != placeFooter)
         place = placeHeader;
     if (pos != posLeft && pos != posRight) {
         pos = posRight;
     }
-    bool ok = false;
-    int margin = marginStr.toInt(&ok);
-    if (!ok || margin > maxHMargin || margin < 0 ) {
-        marginStr = "-1";
-    } else {
-        marginStr = QString::number(margin);
+    if (marginStr != marginAuto) {
+        bool ok = false;
+        int margin = marginStr.toInt(&ok);
+        if (!ok || margin > maxHMargin || margin < 0 ) {
+            marginStr = marginAuto;
+        } else {
+            marginStr = QString::number(margin);
+        }
     }
     settings.setValue(placeKey, place);
     settings.setValue(posKey, pos);
@@ -109,7 +112,11 @@ int NCSettings::hMargin()
 {
     syncSettings();
     bool ok = false;
-    int margin = settings.value(marginKey).toString().toInt(&ok);
+    int margin = -1;
+    QString marginStr = settings.value(marginKey).toString();
+    if (marginStr != marginAuto) {
+        margin = marginStr.toInt(&ok);
+    }
     return ok ? margin : -1;
 }
 

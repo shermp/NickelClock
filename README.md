@@ -44,7 +44,7 @@ settings file contains:
 
 ```ini
 [General]
-hor_margin=-1
+hor_margin=auto
 placement=header
 position=right
 ```
@@ -57,8 +57,9 @@ The allowed values for `position` are:
 - `left`
 - `right`
 
-`hor_margin` can be set to `-1` for an automatic margin, or any whole number 
-value up to a quarter of your screen width. The default value is `-1`.
+`hor_margin` can be set to `auto` for an automatic margin, or any whole number 
+value above zero, up to a quarter of your screen width. 
+The default value is `auto`.
 
 No other customisation is available at this time.
 
