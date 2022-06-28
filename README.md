@@ -20,7 +20,7 @@ and [NanoClock](https://github.com/NiLuJe/NanoClock).
 *Footer - Right*
 ![footer right](./images/footer-right.png)
 
-## Install NickelClock
+## Install or Upgrade NickelClock
 
 1. Download the `NickelClock.zip` file from the [latest](https://github.com/shermp/NickelClock/releases/latest) 
    release. Extract the `KoboRoot.tgz` file from the downloaded file 
