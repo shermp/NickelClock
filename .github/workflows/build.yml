@@ -12,22 +12,28 @@ jobs:
       with:
         submodules: recursive
 
+    - name: Inject version string
+      run: |
+        set -x
+        git fetch --prune --unshallow
+        echo "VERSION=$(git describe --abbrev=5)" >> $GITHUB_ENV
+
     - name: Build
       run: make clean && make all koboroot
 
     - name: Upload KoboRoot
       uses: actions/upload-artifact@v3
       with:
-        name: NickelClock
+        name: NickelClock-${{ env.VERSION }}
         path: KoboRoot.tgz
 
     - name: Zip KoboRoot
-      run: zip NickelClock.zip KoboRoot.tgz
+      run: zip NickelClock-${{ env.VERSION }}.zip KoboRoot.tgz
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: NickelClock.zip
+        files: NickelClock-${{ env.VERSION }}.zip
         draft: true
         fail_on_unmatched_files: true
