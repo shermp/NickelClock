@@ -15,7 +15,7 @@ jobs:
     - name: Inject version string
       run: |
         set -x
-        git fetch --prune --unshallow
+        git fetch --prune --unshallow --tags
         echo "VERSION=$(git describe --abbrev=5)" >> $GITHUB_ENV
 
     - name: Build
