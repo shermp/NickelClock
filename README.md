@@ -72,7 +72,7 @@ firmware release. It has currently been tested to work on firmware 4.33.
 
 ## Uninstall NickelClock
 
-To uninstall NickelClock, simply delete the `uninstall.txt` file from the
+To uninstall NickelClock, simply delete the `uninstall` file from the
 `.adds/nickelclock` directory, then restart your Kobo.
 
 ## FAQ
