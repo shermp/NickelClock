@@ -22,7 +22,7 @@ and [NanoClock](https://github.com/NiLuJe/NanoClock).
 
 ## Install or Upgrade NickelClock
 
-1. Download the `NickelClock.zip` file from the [latest](https://github.com/shermp/NickelClock/releases/latest) 
+1. Download the `NickelClock-<version>.zip` file from the [latest](https://github.com/shermp/NickelClock/releases/latest) 
    release. Extract the `KoboRoot.tgz` file from the downloaded file 
    (note: Mac OS X may extract this by default on download).
 2. Copy `KoboRoot.tgz` to the `.kobo` directory on your Kobo, and disconnect 
