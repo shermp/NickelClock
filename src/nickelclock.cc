@@ -16,6 +16,7 @@
 
 const char nc_qt_property[] = "NickelClock";
 const char nc_widget_name[] = "ncTimeLabel";
+int origFooterMargin = -1;
 
 typedef QWidget ReadingView;
 typedef QWidget ReadingFooter;
@@ -133,6 +134,8 @@ NCSettings *nc_settings = nullptr;
 // This is somewhat arbitrary, but seems a good place to get
 // access to the ReadingView after it has been created.
 void (*ReadingView__ReaderIsDoneLoading)(ReadingView *_this);
+// This gets called when switching in and out of dark mode.
+void (*ReadingView__darkModeChanged)(ReadingView *_this);
 // TimeLabel is what the status bar uses to show the time
 TimeLabel *(*TimeLabel__TimeLabel)(TimeLabel *_this, QWidget *parent);
 
@@ -151,6 +154,13 @@ static struct nh_hook NickelClockHook[] = {
         .lib     = "libnickel.so.1.0.0",
         .out     = nh_symoutptr(ReadingView__ReaderIsDoneLoading),
         .desc    = "footer progress update"
+    },
+    {
+        .sym     = "_ZN11ReadingView15darkModeChangedEv", 
+        .sym_new = "_nc_dark_mode_changed",
+        .lib     = "libnickel.so.1.0.0",
+        .out     = nh_symoutptr(ReadingView__darkModeChanged),
+        .desc    = "ReadingView::darkModeChanged()"
     },
     {0},
 };
@@ -202,6 +212,21 @@ static QString get_time_style()
     return "";
 }
 
+// Update the margins of the ReadingFooter layout if required.
+static void update_footer_margins(QLayout *layout)
+{
+    if (!layout)
+        return;
+    QMargins margin = layout->contentsMargins();
+    if (origFooterMargin < 0)
+        origFooterMargin = margin.left();
+    int newMargin = nc_settings->hMargin();
+    if (newMargin < 0)
+        newMargin = origFooterMargin / 10;
+    if (newMargin != margin.left())
+        layout->setContentsMargins(newMargin, margin.top(), newMargin, margin.bottom());
+}
+
 // The ReadingFooter uses a QHBoxLayout QLayout with a single widget (the 
 // "caption"), which is a QLabel.
 // We need to add a TimeLabel widget here, and insert some stretchable spacing 
@@ -217,11 +242,7 @@ static void add_time_to_footer(ReadingFooter *rf, TimePos position)
             nh_log("Adding TimeLabel widget to ReadingView header");
 
             // Set margins
-            QMargins margin = hl->contentsMargins();
-            int newMargin = nc_settings->hMargin();
-            if (newMargin < 0)
-                newMargin = margin.left() / 10;
-            hl->setContentsMargins(newMargin, margin.top(), newMargin, margin.bottom());
+            update_footer_margins(hl);
 
             hl->setStretch(0, 2);
 
@@ -243,19 +264,40 @@ static void add_time_to_footer(ReadingFooter *rf, TimePos position)
     }
 }
 
-// On recent 4.x firmware versions, the header and footer are setup in 
-// Ui_ReadingView::setupUi(). They are ReadingFooter widgets, with names set to 
-// "header" and "footer". This makes it easy to find them with findChild().
-extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) 
+static ReadingFooter* find_reading_footer(ReadingView *_this)
 {
     auto containerName = (nc_settings->placement() == TimePlacement::Header)
                          ? "header" : "footer";
 
     // Find header or footer
-    ReadingFooter *rf = _this->findChild<ReadingFooter*>(containerName);
+    auto rf = _this->findChild<ReadingFooter*>(containerName);
     if (!rf)
         nh_log("ReadingFooter '%s' not found in ReadingView", containerName);
+    return rf;
+}
 
+// On recent 4.x firmware versions, the header and footer are setup in 
+// Ui_ReadingView::setupUi(). They are ReadingFooter widgets, with names set to 
+// "header" and "footer". This makes it easy to find them with findChild().
+extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) 
+{
+    // Find header or footer
+    ReadingFooter *rf = find_reading_footer(_this);
     add_time_to_footer(rf, nc_settings->position());
     ReadingView__ReaderIsDoneLoading(_this);
+}
+
+// The original method polishes the widget and it's childrent, and seems to 
+// reset margins to default. Therefore, hook and change the margins after it 
+// has done it's work.
+extern "C" __attribute__((visibility("default"))) void _nc_dark_mode_changed(ReadingView *_this) 
+{
+    // Let the dark mode stuff happen first
+    ReadingView__darkModeChanged(_this);
+    // Find header or footer
+    ReadingFooter *rf = find_reading_footer(_this);
+    if (rf && rf->property(nc_qt_property).isValid()) {
+        QLayout *l = rf->layout();
+        update_footer_margins(l);
+    }
 }
