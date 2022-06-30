@@ -14,44 +14,12 @@
 
 #include <NickelHook.h>
 
+#include "nickelclock.h"
+
 const char nc_qt_property[] = "NickelClock";
 const char nc_widget_name[] = "ncTimeLabel";
 
-typedef QWidget ReadingView;
-typedef QWidget ReadingFooter;
-typedef QLabel TimeLabel;
-typedef QLabel TouchLabel;
 
-enum class TimePos {Left, Right};
-enum class TimePlacement {Header, Footer};
-
-#ifndef NICKEL_CLOCK_DIR
-    #define NICKEL_CLOCK_DIR "/mnt/onboard/.adds/nickelclock"
-#endif
-
-class NCSettings {
-    public:
-        NCSettings(QRect const& screenGeom);
-        
-        TimePlacement placement();
-        TimePos position();
-        int hMargin();
-    private:
-        QSettings settings;
-        QString placeKey = "placement";
-        QString posKey = "position";
-        QString marginKey = "hor_margin";
-        QString placeHeader = "header";
-        QString placeFooter = "footer";
-        QString posLeft = "left";
-        QString posRight = "right";
-        QString marginAuto = "auto";
-
-        int maxHMargin = 200;
-
-        void syncSettings();
-        void setMaxHMargin(QRect const& screenGeom);
-};
 
 NCSettings::NCSettings(QRect const& screenGeom)
     : settings(NICKEL_CLOCK_DIR "/settings.ini", QSettings::IniFormat)
@@ -128,7 +96,7 @@ void NCSettings::setMaxHMargin(QRect const& screenGeom)
     nh_log("screen width: %d, setting margin: %d", w, maxHMargin);
 }
 
-NCSettings *nc_settings = nullptr;
+NC *nc = nullptr;
 
 // This is somewhat arbitrary, but seems a good place to get
 // access to the ReadingView after it has been created.
@@ -168,8 +136,8 @@ static int nc_init()
 {
     QScreen *scr = QGuiApplication::primaryScreen();
     QRect const geom = scr->geometry();
-    nc_settings = new NCSettings(geom);
-    if (!nc_settings)
+    nc = new NC(geom);
+    if (!nc)
         return 1;
     return 0;
 }
@@ -202,11 +170,15 @@ static QString get_time_style()
     return "";
 }
 
+NC::NC(QRect const& screenGeom) : QObject(nullptr), settings(screenGeom)
+{
+}
+
 // The ReadingFooter uses a QHBoxLayout QLayout with a single widget (the 
 // "caption"), which is a QLabel.
 // We need to add a TimeLabel widget here, and insert some stretchable spacing 
 // to ensure that the caption remains centred. 
-static void add_time_to_footer(ReadingFooter *rf, TimePos position) 
+void NC::addTimeToFooter(ReadingFooter *rf, TimePos position) 
 {
     QLayout *l = nullptr;
     if (rf && !rf->property(nc_qt_property).isValid() && (l = rf->layout())) {
@@ -218,7 +190,7 @@ static void add_time_to_footer(ReadingFooter *rf, TimePos position)
 
             // Set margins
             QMargins margin = hl->contentsMargins();
-            int newMargin = nc_settings->hMargin();
+            int newMargin = settings.hMargin();
             if (newMargin < 0)
                 newMargin = margin.left() / 10;
             hl->setContentsMargins(newMargin, margin.top(), newMargin, margin.bottom());
@@ -248,7 +220,7 @@ static void add_time_to_footer(ReadingFooter *rf, TimePos position)
 // "header" and "footer". This makes it easy to find them with findChild().
 extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) 
 {
-    auto containerName = (nc_settings->placement() == TimePlacement::Header)
+    auto containerName = (nc->settings.placement() == TimePlacement::Header)
                          ? "header" : "footer";
 
     // Find header or footer
@@ -256,6 +228,6 @@ extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(Read
     if (!rf)
         nh_log("ReadingFooter '%s' not found in ReadingView", containerName);
 
-    add_time_to_footer(rf, nc_settings->position());
+    nc->addTimeToFooter(rf, nc->settings.position());
     ReadingView__ReaderIsDoneLoading(_this);
 }
