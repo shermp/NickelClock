@@ -52,6 +52,9 @@ class NC : public QObject
         
         NC(QRect const& screenGeom);
         void addTimeToFooter(ReadingFooter *rf, TimePos position);
+    private:
+        int origFooterMargin = -1;
+        void updateFooterMargins(QLayout *layout);
 };
 
 #endif

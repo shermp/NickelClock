@@ -189,11 +189,7 @@ void NC::addTimeToFooter(ReadingFooter *rf, TimePos position)
             nh_log("Adding TimeLabel widget to ReadingView header");
 
             // Set margins
-            QMargins margin = hl->contentsMargins();
-            int newMargin = settings.hMargin();
-            if (newMargin < 0)
-                newMargin = margin.left() / 10;
-            hl->setContentsMargins(newMargin, margin.top(), newMargin, margin.bottom());
+            updateFooterMargins(hl);
 
             hl->setStretch(0, 2);
 
@@ -214,6 +210,22 @@ void NC::addTimeToFooter(ReadingFooter *rf, TimePos position)
         }
     }
 }
+
+// Update the margins of the ReadingFooter layout if required.
+void NC::updateFooterMargins(QLayout *layout)
+{
+    if (!layout)
+        return;
+    QMargins margin = layout->contentsMargins();
+    if (origFooterMargin < 0)
+        origFooterMargin = margin.left();
+    int newMargin = settings.hMargin();
+    if (newMargin < 0)
+        newMargin = origFooterMargin / 10;
+    if (newMargin != margin.left())
+        layout->setContentsMargins(newMargin, margin.top(), newMargin, margin.bottom());
+}
+
 
 // On recent 4.x firmware versions, the header and footer are setup in 
 // Ui_ReadingView::setupUi(). They are ReadingFooter widgets, with names set to 
