@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QWidget>
 #include <QLabel>
+#include <QRegularExpression>
 #include <QString>
 #include <QSettings>
 
@@ -52,9 +53,16 @@ class NC : public QObject
         
         NC(QRect const& screenGeom);
         void addTimeToFooter(ReadingFooter *rf, TimePos position);
+        void setFooterStylesheet(ReadingFooter *rf);
+        QString const& timeLabelStylesheet();
     private:
         int origFooterMargin = -1;
+        QString origFooterStylesheet;
+        QString tlStylesheet;
+        QRegularExpression footerMarginRe;
         void updateFooterMargins(QLayout *layout);
+        void getFooterStylesheet();
+        void createTimeLabelStylesheet();
 };
 
 #endif

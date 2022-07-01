@@ -157,21 +157,44 @@ NickelHook(
     .uninstall = &nc_uninstall
 )
 
-// Sets the TimeLabel style to the same as the footer text style
-static QString get_time_style() 
+NC::NC(QRect const& screenGeom) 
+            : QObject(nullptr), 
+              settings(screenGeom),
+              footerMarginRe("qproperty-footerMargin:\\s*\\d+;")
 {
-    QFile rfStyleFile(":/qss/ReadingFooter.qss");
-    if (rfStyleFile.open(QIODevice::ReadOnly)) {
-        QString style = rfStyleFile.readAll();
-        style.replace("#caption", QString("#%1").arg(nc_widget_name));
-        style = style + QString("\n#%1 {padding: 0px;}").arg(nc_widget_name);
-        return style;
-    }
-    return "";
+    getFooterStylesheet();
+    createTimeLabelStylesheet();
 }
 
-NC::NC(QRect const& screenGeom) : QObject(nullptr), settings(screenGeom)
+void NC::getFooterStylesheet()
 {
+    if (origFooterStylesheet.isEmpty()) {
+        QFile rfStyleFile(":/qss/ReadingFooter.qss");
+        if (rfStyleFile.open(QIODevice::ReadOnly)) {
+            origFooterStylesheet = rfStyleFile.readAll();
+        }
+    }
+}
+
+// Creates a stylesheet for our TimeLabel which is derived from the
+// ReadingFooter stylesheet, without the ReadingFooter selectors
+void NC::createTimeLabelStylesheet()
+{
+    if (tlStylesheet.isEmpty()) {
+        getFooterStylesheet();
+        int index = origFooterStylesheet.indexOf("#caption");
+        if (index == -1)
+            return;
+        tlStylesheet = origFooterStylesheet;
+        tlStylesheet.remove(0, index);
+        tlStylesheet.replace("#caption", QString("#%1").arg(nc_widget_name));
+        tlStylesheet.append(QString("\n#%1 {padding: 0px;}").arg(nc_widget_name));
+    }
+}
+
+QString const& NC::timeLabelStylesheet()
+{
+    return tlStylesheet;
 }
 
 // The ReadingFooter uses a QHBoxLayout QLayout with a single widget (the 
@@ -187,10 +210,8 @@ void NC::addTimeToFooter(ReadingFooter *rf, TimePos position)
         QHBoxLayout *hl = qobject_cast<QHBoxLayout*>(l);
         if (hl) {
             nh_log("Adding TimeLabel widget to ReadingView header");
-
-            // Set margins
-            updateFooterMargins(hl);
-
+            setFooterStylesheet(rf);
+            
             hl->setStretch(0, 2);
 
             TimeLabel *tl = (TimeLabel*) ::operator new (128); // Actual size 88 bytes
@@ -198,7 +219,7 @@ void NC::addTimeToFooter(ReadingFooter *rf, TimePos position)
             tl->setObjectName(nc_widget_name);
             auto hAlign = position == TimePos::Left ? Qt::AlignLeft : Qt::AlignRight;
             tl->setAlignment(hAlign | Qt::AlignVCenter);
-            tl->setStyleSheet(get_time_style());
+            tl->setStyleSheet(timeLabelStylesheet());
 
             if (position == TimePos::Left) {
                 hl->insertWidget(0, tl, 1, Qt::AlignLeft);
@@ -211,21 +232,23 @@ void NC::addTimeToFooter(ReadingFooter *rf, TimePos position)
     }
 }
 
-// Update the margins of the ReadingFooter layout if required.
-void NC::updateFooterMargins(QLayout *layout)
+// Nickel sometimes polishes the ReadingFooter widget, which overrides settable 
+// values back to their stylesheet default Therefore replace the ReadingFooter 
+// stylesheet with customized margins instead.
+void NC::setFooterStylesheet(ReadingFooter *rf)
 {
-    if (!layout)
+    if (!rf || !rf->layout())
         return;
-    QMargins margin = layout->contentsMargins();
+    auto l = rf->layout();
     if (origFooterMargin < 0)
-        origFooterMargin = margin.left();
+        origFooterMargin = l->contentsMargins().left();
     int newMargin = settings.hMargin();
     if (newMargin < 0)
         newMargin = origFooterMargin / 10;
-    if (newMargin != margin.left())
-        layout->setContentsMargins(newMargin, margin.top(), newMargin, margin.bottom());
+    QString s = QStringLiteral("qproperty-footerMargin: %1;").arg(newMargin);
+    QString ss = origFooterStylesheet;
+    rf->setStyleSheet(ss.replace(footerMarginRe, s));
 }
-
 
 // On recent 4.x firmware versions, the header and footer are setup in 
 // Ui_ReadingView::setupUi(). They are ReadingFooter widgets, with names set to 
