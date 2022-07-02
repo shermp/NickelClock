@@ -85,16 +85,33 @@ Placement NCSettings::batteryPlacement() { return placement(SL(Battery)); }
 
 Position NCSettings::position(QString const& group)
 {
-    QString key = QStringLiteral("%1/%2").arg(group).arg(SL(Position));
+    QString key = QSL("%1/%2").arg(group).arg(SL(Position));
     QString pos = settings.value(key).toString();
     return pos == SL(Left) ? Left : Right;
 }
 
 Placement NCSettings::placement(QString const& group)
 {
-    QString key = QStringLiteral("%1/%2").arg(group).arg(SL(Placement));
+    QString key = QSL("%1/%2").arg(group).arg(SL(Placement));
     QString place = settings.value(key).toString();
     return place == SL(Header) ? Header : Footer;
+}
+
+bool NCSettings::clockEnabled() { return groupEnabled(SL(Clock)); }
+bool NCSettings::batteryEnabled() { return groupEnabled(SL(Battery)); }
+
+bool NCSettings::groupEnabled(QString const& group)
+{
+    QString key = QSL("%1/%2").arg(group).arg(enabledKey);
+    return settings.value(key).toBool();
+}
+
+BatteryType NCSettings::batteryType()
+{
+    QString key = QSL("%1/%2").arg(SL(Battery)).arg(SL(BatteryType));
+    QString type = settings.value(key).toString();
+    return type == SL(Both) ? Both
+                            : type == SL(Level) ? Level : Icon;
 }
 
 int NCSettings::margin()

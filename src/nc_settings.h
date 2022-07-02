@@ -14,10 +14,14 @@ class NCSettings
         NCSettings(QRect const& screenGeom);
 
         void syncSettings();
+
+        bool clockEnabled();
+        bool batteryEnabled();
         Position clockPosition();
         Position batteryPosition();
         Placement clockPlacement();
         Placement batteryPlacement();
+        BatteryType batteryType();
         int margin();
 
     private:
@@ -28,6 +32,7 @@ class NCSettings
         void setMaxHMargin(QRect const& screenGeom);
         Position position(QString const& group);
         Placement placement(QString const& group);
+        bool groupEnabled(QString const& group);
 };
 
 #endif // NC_SETTINGS_H
