@@ -10,3 +10,5 @@ compile_commands.json
 /KoboRoot.tgz
 /libnickelclock.so
 /src/nickelclock.o
+/src/nickelclock.moc
+/src/nickelclock.moc.o
