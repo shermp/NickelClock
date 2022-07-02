@@ -12,8 +12,26 @@ void NCSettings::syncSettings()
 {
     settings.sync();
 
-    QString const groups[] = {SL(Clock), SL(Battery)};
-    for (auto& g : groups) {
+    // import legacy settings
+    QString lMargin = settings.value("hor_margin").toString();
+    QString lPos = settings.value("position").toString();
+    QString lPlace = settings.value("placement").toString();
+
+    QString defPos = SL(Right);
+    QString defPlace = SL(Header);
+    QString defMargin = SL(Auto);
+    if (lPos == "left")
+        defPos = SL(Left);
+    if (lPlace == "footer")
+        defPlace == SL(Footer);
+    if (lMargin != "auto")
+        defMargin = lMargin;
+    
+    for (auto& k : {QSL("hor_margin"), QSL("position"), QSL("placement")}) {
+        settings.remove(k);
+    }
+    
+    for (auto& g : {SL(Clock), SL(Battery)}) {
         settings.beginGroup(g);
 
         QVariant enabled = settings.value(enabledKey);
@@ -21,8 +39,8 @@ void NCSettings::syncSettings()
             enabled = g == SL(Clock) ? true : false;
         settings.setValue(enabledKey, enabled.toBool());
 
-        QString pos = settings.value(SL(Position), SL(Right)).toString();
-        QString place = settings.value(SL(Placement), SL(Header)).toString();
+        QString pos = settings.value(SL(Position), defPos).toString();
+        QString place = settings.value(SL(Placement), defPlace).toString();
         if (pos != SL(Left) && pos != SL(Right))
             pos = SL(Right);
         if (place != SL(Header) && place != SL(Footer))
@@ -40,7 +58,7 @@ void NCSettings::syncSettings()
         settings.endGroup();
     }
     
-    QString marginStr = settings.value(SL(Margin), SL(Auto)).toString();
+    QString marginStr = settings.value(SL(Margin), defMargin).toString();
     if (marginStr != SL(Auto)) {
         bool ok = false;
         int margin = marginStr.toInt(&ok);

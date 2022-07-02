@@ -5,8 +5,8 @@
 #include <QSettings>
 #include <QString>
 
-#define STR(s) #s
-#define SL(s) QStringLiteral(#s)
+#define QSL(s) QStringLiteral(s)
+#define SL(s) QSL(#s)
 
 class NCSettings
 {
