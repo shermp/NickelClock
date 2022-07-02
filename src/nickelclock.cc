@@ -12,89 +12,13 @@
 #include <QMargins>
 #include <QScreen>
 
-#include <NickelHook.h>
-
+#include "nc_common.h"
 #include "nickelclock.h"
+
+#include <NickelHook.h>
 
 const char nc_qt_property[] = "NickelClock";
 const char nc_widget_name[] = "ncTimeLabel";
-
-
-
-NCSettings::NCSettings(QRect const& screenGeom)
-    : settings(NICKEL_CLOCK_DIR "/settings.ini", QSettings::IniFormat)
-{
-    setMaxHMargin(screenGeom);
-    syncSettings();
-}
-
-void NCSettings::syncSettings()
-{
-    settings.sync();
-    QString place = settings.value(placeKey, placeHeader).toString();
-    QString pos = settings.value(posKey, posRight).toString();
-    QString marginStr = settings.value(marginKey, marginAuto).toString();
-    if (place != placeHeader && place != placeFooter)
-        place = placeHeader;
-    if (pos != posLeft && pos != posRight) {
-        pos = posRight;
-    }
-    if (marginStr != marginAuto) {
-        bool ok = false;
-        int margin = marginStr.toInt(&ok);
-        if (!ok || margin > maxHMargin || margin < 0 ) {
-            marginStr = marginAuto;
-        } else {
-            marginStr = QString::number(margin);
-        }
-    }
-    settings.setValue(placeKey, place);
-    settings.setValue(posKey, pos);
-    settings.setValue(marginKey, marginStr);
-    settings.sync();
-}
-
-TimePlacement NCSettings::placement()
-{
-    syncSettings();
-    QString place = settings.value(placeKey).toString();
-    if (place == placeFooter) {
-        return TimePlacement::Footer;
-    } else {
-        return TimePlacement::Header;
-    }
-}
-
-TimePos NCSettings::position()
-{
-    syncSettings();
-    QString pos = settings.value(posKey).toString();
-    if (pos == posLeft) {
-        return TimePos::Left;
-    } else {
-        return TimePos::Right;
-    }
-}
-
-int NCSettings::hMargin()
-{
-    syncSettings();
-    bool ok = false;
-    int margin = -1;
-    QString marginStr = settings.value(marginKey).toString();
-    if (marginStr != marginAuto) {
-        margin = marginStr.toInt(&ok);
-    }
-    return ok ? margin : -1;
-}
-
-void NCSettings::setMaxHMargin(QRect const& screenGeom)
-{
-    int w = screenGeom.width() < screenGeom.height() ? screenGeom.width()
-                                                     : screenGeom.height();
-    maxHMargin = w / 4;
-    nh_log("screen width: %d, setting margin: %d", w, maxHMargin);
-}
 
 NC *nc = nullptr;
 
@@ -201,7 +125,7 @@ QString const& NC::timeLabelStylesheet()
 // "caption"), which is a QLabel.
 // We need to add a TimeLabel widget here, and insert some stretchable spacing 
 // to ensure that the caption remains centred. 
-void NC::addTimeToFooter(ReadingFooter *rf, TimePos position) 
+void NC::addTimeToFooter(ReadingFooter *rf, Position position) 
 {
     QLayout *l = nullptr;
     if (rf && !rf->property(nc_qt_property).isValid() && (l = rf->layout())) {
@@ -217,11 +141,11 @@ void NC::addTimeToFooter(ReadingFooter *rf, TimePos position)
             TimeLabel *tl = (TimeLabel*) ::operator new (128); // Actual size 88 bytes
             TimeLabel__TimeLabel(tl, nullptr);
             tl->setObjectName(nc_widget_name);
-            auto hAlign = position == TimePos::Left ? Qt::AlignLeft : Qt::AlignRight;
+            auto hAlign = position == Left ? Qt::AlignLeft : Qt::AlignRight;
             tl->setAlignment(hAlign | Qt::AlignVCenter);
             tl->setStyleSheet(timeLabelStylesheet());
 
-            if (position == TimePos::Left) {
+            if (position == Left) {
                 hl->insertWidget(0, tl, 1, Qt::AlignLeft);
                 hl->addStretch(1);
             } else {
@@ -242,7 +166,7 @@ void NC::setFooterStylesheet(ReadingFooter *rf)
     auto l = rf->layout();
     if (origFooterMargin < 0)
         origFooterMargin = l->contentsMargins().left();
-    int newMargin = settings.hMargin();
+    int newMargin = settings.margin();
     if (newMargin < 0)
         newMargin = origFooterMargin / 10;
     QString s = QStringLiteral("qproperty-footerMargin: %1;").arg(newMargin);
@@ -255,7 +179,8 @@ void NC::setFooterStylesheet(ReadingFooter *rf)
 // "header" and "footer". This makes it easy to find them with findChild().
 extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) 
 {
-    auto containerName = (nc->settings.placement() == TimePlacement::Header)
+    nc->settings.syncSettings();
+    auto containerName = (nc->settings.clockPlacement() == Header)
                          ? "header" : "footer";
 
     // Find header or footer
@@ -263,6 +188,6 @@ extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(Read
     if (!rf)
         nh_log("ReadingFooter '%s' not found in ReadingView", containerName);
 
-    nc->addTimeToFooter(rf, nc->settings.position());
+    nc->addTimeToFooter(rf, nc->settings.clockPosition());
     ReadingView__ReaderIsDoneLoading(_this);
 }
