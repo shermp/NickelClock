@@ -22,17 +22,18 @@ class NC : public QObject
         NCSettings settings;
         
         NC(QRect const& screenGeom);
-        void addTimeToFooter(ReadingFooter *rf, Position position);
+        void addItemsToFooter(ReadingView *rv);
         void setFooterStylesheet(ReadingFooter *rf);
-        QString const& timeLabelStylesheet();
+        QString const& ncLabelStylesheet();
     private:
         int origFooterMargin = -1;
         QString origFooterStylesheet;
-        QString tlStylesheet;
+        QString ncLblStylesheet;
         QRegularExpression footerMarginRe;
         void updateFooterMargins(QLayout *layout);
         void getFooterStylesheet();
-        void createTimeLabelStylesheet();
+        void createNCLabelStylesheet();
+        TimeLabel* createTimeLabel();
 };
 
 #endif

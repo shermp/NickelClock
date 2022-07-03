@@ -87,7 +87,7 @@ NC::NC(QRect const& screenGeom)
               footerMarginRe("qproperty-footerMargin:\\s*\\d+;")
 {
     getFooterStylesheet();
-    createTimeLabelStylesheet();
+    createNCLabelStylesheet();
 }
 
 void NC::getFooterStylesheet()
@@ -102,31 +102,40 @@ void NC::getFooterStylesheet()
 
 // Creates a stylesheet for our TimeLabel which is derived from the
 // ReadingFooter stylesheet, without the ReadingFooter selectors
-void NC::createTimeLabelStylesheet()
+void NC::createNCLabelStylesheet()
 {
-    if (tlStylesheet.isEmpty()) {
+    if (ncLblStylesheet.isEmpty()) {
         getFooterStylesheet();
         int index = origFooterStylesheet.indexOf("#caption");
         if (index == -1)
             return;
-        tlStylesheet = origFooterStylesheet;
-        tlStylesheet.remove(0, index);
-        tlStylesheet.replace("#caption", QString("#%1").arg(nc_widget_name));
-        tlStylesheet.append(QString("\n#%1 {padding: 0px;}").arg(nc_widget_name));
+        ncLblStylesheet = origFooterStylesheet;
+        ncLblStylesheet.remove(0, index);
+        ncLblStylesheet.replace("#caption", QString("#%1").arg(nc_widget_name));
+        ncLblStylesheet.append(QString("\n#%1 {padding: 0px;}").arg(nc_widget_name));
     }
 }
 
-QString const& NC::timeLabelStylesheet()
+QString const& NC::ncLabelStylesheet()
 {
-    return tlStylesheet;
+    return ncLblStylesheet;
 }
 
 // The ReadingFooter uses a QHBoxLayout QLayout with a single widget (the 
 // "caption"), which is a QLabel.
 // We need to add a TimeLabel widget here, and insert some stretchable spacing 
 // to ensure that the caption remains centred. 
-void NC::addTimeToFooter(ReadingFooter *rf, Position position) 
+void NC::addItemsToFooter(ReadingView *rv) 
 {
+    auto containerName = (nc->settings.clockPlacement() == Header)
+                         ? "header" : "footer";
+
+    // Find header or footer
+    ReadingFooter *rf = rv->findChild<ReadingFooter*>(containerName);
+    if (!rf) {
+        nh_log("ReadingFooter '%s' not found in ReadingView", containerName);
+        return;
+    }
     QLayout *l = nullptr;
     if (rf && !rf->property(nc_qt_property).isValid() && (l = rf->layout())) {
         nh_log("ReadingView header layout found");
@@ -138,14 +147,9 @@ void NC::addTimeToFooter(ReadingFooter *rf, Position position)
             
             hl->setStretch(0, 2);
 
-            TimeLabel *tl = (TimeLabel*) ::operator new (128); // Actual size 88 bytes
-            TimeLabel__TimeLabel(tl, nullptr);
-            tl->setObjectName(nc_widget_name);
-            auto hAlign = position == Left ? Qt::AlignLeft : Qt::AlignRight;
-            tl->setAlignment(hAlign | Qt::AlignVCenter);
-            tl->setStyleSheet(timeLabelStylesheet());
+            TimeLabel *tl = createTimeLabel();
 
-            if (position == Left) {
+            if (settings.clockPosition() == Left) {
                 hl->insertWidget(0, tl, 1, Qt::AlignLeft);
                 hl->addStretch(1);
             } else {
@@ -174,20 +178,23 @@ void NC::setFooterStylesheet(ReadingFooter *rf)
     rf->setStyleSheet(ss.replace(footerMarginRe, s));
 }
 
+TimeLabel* NC::createTimeLabel()
+{
+    TimeLabel *tl = (TimeLabel*) ::operator new (128); // Actual size 88 bytes
+    TimeLabel__TimeLabel(tl, nullptr);
+    tl->setObjectName(nc_widget_name);
+    auto hAlign = settings.clockPosition() == Left ? Qt::AlignLeft : Qt::AlignRight;
+    tl->setAlignment(hAlign | Qt::AlignVCenter);
+    tl->setStyleSheet(ncLabelStylesheet());
+    return tl;
+}
+
 // On recent 4.x firmware versions, the header and footer are setup in 
 // Ui_ReadingView::setupUi(). They are ReadingFooter widgets, with names set to 
 // "header" and "footer". This makes it easy to find them with findChild().
 extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) 
 {
     nc->settings.syncSettings();
-    auto containerName = (nc->settings.clockPlacement() == Header)
-                         ? "header" : "footer";
-
-    // Find header or footer
-    ReadingFooter *rf = _this->findChild<ReadingFooter*>(containerName);
-    if (!rf)
-        nh_log("ReadingFooter '%s' not found in ReadingView", containerName);
-
-    nc->addTimeToFooter(rf, nc->settings.clockPosition());
+    nc->addItemsToFooter(_this);
     ReadingView__ReaderIsDoneLoading(_this);
 }
