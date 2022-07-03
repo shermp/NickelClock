@@ -18,7 +18,10 @@
 #include <NickelHook.h>
 
 const char nc_qt_property[] = "NickelClock";
-const char nc_widget_name[] = "ncTimeLabel";
+const char nc_widget_name[] = "ncLabelWidget";
+
+const char nc_sysfs_gen_bat_cap[] = "/sys/class/power_supply/battery/capacity";
+const char nc_sysfs_mc13892_bat_cap[] = "/sys/class/power_supply/mc13892_bat/capacity";
 
 NC *nc = nullptr;
 
@@ -27,6 +30,9 @@ NC *nc = nullptr;
 void (*ReadingView__ReaderIsDoneLoading)(ReadingView *_this);
 // TimeLabel is what the status bar uses to show the time
 TimeLabel *(*TimeLabel__TimeLabel)(TimeLabel *_this, QWidget *parent);
+
+HardwareInterface *(*HardwareFactory__sharedInstance)();
+N3BatteryStatusLabel *(*N3BatteryStatusLabel__N3BatteryStatusLabel)(N3BatteryStatusLabel* _this, QWidget *parent);
 
 static struct nh_info NickelClock = {
     .name           = "NickelClock",
@@ -52,6 +58,16 @@ static struct nh_dlsym NickelClockDlsym[] = {
         .name    = "_ZN9TimeLabelC1EP7QWidget",
         .out     = nh_symoutptr(TimeLabel__TimeLabel),
         .desc    = "TimeLabel::TimeLabel()"
+    },
+    {
+        .name    = "_ZN15HardwareFactory14sharedInstanceEv",
+        .out     = nh_symoutptr(HardwareFactory__sharedInstance),
+        .desc    = "HardwareFactory::sharedInstance()"
+    },
+    {
+        .name    = "_ZN20N3BatteryStatusLabelC1EP7QWidget",
+        .out     = nh_symoutptr(N3BatteryStatusLabel__N3BatteryStatusLabel),
+        .desc    = "N3BatteryStatusLabel::N3BatteryStatusLabel()"
     },
     {0},
 };
@@ -187,6 +203,63 @@ TimeLabel* NC::createTimeLabel()
     tl->setAlignment(hAlign | Qt::AlignVCenter);
     tl->setStyleSheet(ncLabelStylesheet());
     return tl;
+}
+
+QFrame* NC::createBatteryWidget()
+{
+    HardwareInterface *hw = HardwareFactory__sharedInstance();
+    BatteryType type = settings.batteryType();
+    QFrame *battery = new QFrame();
+    QHBoxLayout *l = new QHBoxLayout();
+    NCBatteryLabel *level = nullptr;
+    N3BatteryStatusLabel *icon = nullptr;
+
+    if (type == Level || type == Both) {
+        int initLevel = getBatteryLevel();
+        level = new NCBatteryLabel();
+        level->setObjectName(nc_widget_name);
+        level->setStyleSheet(ncLabelStylesheet());
+        level->setBatteryLevel(initLevel);
+        if (!connect(hw, SIGNAL(battery_level(int)), level, SLOT(setBatteryLevel(int))))
+            nh_log("Failed to connect battery_level signal to label");
+        l->addWidget(level);
+    }
+    if (type == Icon || type == Both) {
+        icon = (N3BatteryStatusLabel*) ::operator new (256); // Actual size 208 bytes
+        l->addWidget(icon);
+    }
+    battery->setLayout(l);
+
+    return battery;
+}
+
+// Trying to get the battery level out of Nickel seems to be more trouble
+// than it's worth, therefore get it via sysfs
+int NC::getBatteryLevel()
+{
+    int battery = 100;
+    QFile bcFile = QFile::exists(nc_sysfs_gen_bat_cap) 
+                            ? QFile(nc_sysfs_gen_bat_cap)
+                            : QFile(nc_sysfs_mc13892_bat_cap);
+    if (bcFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        bool ok = false;
+        int battery = bcFile.readAll().trimmed().toInt(&ok);
+        if (!ok) {
+            nh_log("failed to get battery level");
+            battery = 100;
+        }
+    }
+    return battery;
+}
+
+NCBatteryLabel::NCBatteryLabel(QWidget *parent) : QLabel(parent)
+{
+}
+
+void NCBatteryLabel::setBatteryLevel(int level)
+{
+    QString txt = QString::number(level) + "%";
+    setText(txt);
 }
 
 // On recent 4.x firmware versions, the header and footer are setup in 

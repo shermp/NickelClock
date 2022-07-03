@@ -6,14 +6,17 @@
 #include <QLabel>
 #include <QRegularExpression>
 #include <QString>
+#include <QFrame>
 
 #include "nc_common.h"
 #include "nc_settings.h"
 
+typedef QObject HardwareInterface;
 typedef QWidget ReadingView;
 typedef QWidget ReadingFooter;
 typedef QLabel TimeLabel;
 typedef QLabel TouchLabel;
+typedef QLabel N3BatteryStatusLabel;
 
 class NC : public QObject
 {
@@ -33,7 +36,18 @@ class NC : public QObject
         void updateFooterMargins(QLayout *layout);
         void getFooterStylesheet();
         void createNCLabelStylesheet();
+        QFrame* createBatteryWidget();
         TimeLabel* createTimeLabel();
+        int getBatteryLevel();
+};
+
+class NCBatteryLabel : public QLabel
+{
+    Q_OBJECT
+    public:
+        NCBatteryLabel(QWidget *parent = nullptr);
+    public Q_SLOTS:
+        void setBatteryLevel(int level);
 };
 
 #endif
