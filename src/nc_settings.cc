@@ -32,6 +32,9 @@ void NCSettings::syncSettings()
     }
     
     for (auto& g : {SL(Clock), SL(Battery)}) {
+        if (g == SL(Battery)) {
+            defPos = SL(Left);
+        }
         settings.beginGroup(g);
 
         QVariant enabled = settings.value(enabledKey);
