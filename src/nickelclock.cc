@@ -256,6 +256,7 @@ QWidget* NC::createBatteryWidget()
 
     l->setContentsMargins(0, 0, 0, 0);
     battery->setLayout(l);
+    battery->setStyleSheet("padding: 0px; margin: 0px; background-color: transparent;");
     battery->show();
     return battery;
 }
