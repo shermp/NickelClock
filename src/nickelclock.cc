@@ -143,36 +143,64 @@ QString const& NC::ncLabelStylesheet()
 // to ensure that the caption remains centred. 
 void NC::addItemsToFooter(ReadingView *rv) 
 {
-    auto containerName = (nc->settings.clockPlacement() == Header)
-                         ? "header" : "footer";
-
-    // Find header or footer
-    ReadingFooter *rf = rv->findChild<ReadingFooter*>(containerName);
-    if (!rf) {
-        nh_log("ReadingFooter '%s' not found in ReadingView", containerName);
-        return;
-    }
-    QLayout *l = nullptr;
-    if (rf && !rf->property(nc_qt_property).isValid() && (l = rf->layout())) {
-        nh_log("ReadingView header layout found");
-        rf->setProperty(nc_qt_property, true);
-        QHBoxLayout *hl = qobject_cast<QHBoxLayout*>(l);
-        if (hl) {
-            nh_log("Adding TimeLabel widget to ReadingView header");
-            setFooterStylesheet(rf);
-            
-            hl->setStretch(0, 2);
-
+    for (auto p : {Header, Footer}) {
+        const char *fName = p == Header ? "header" : "footer";
+        ReadingFooter *rf = rv->findChild<ReadingFooter*>(fName);
+        if (!rf) {
+            nh_log("could not find %s", fName);
+            continue;
+        }
+        if (rf->property(nc_qt_property).isValid()) {
+            nh_log("skipping already setup %s", fName);
+            continue;
+        }
+        QHBoxLayout *layout = qobject_cast<QHBoxLayout*>(rf->layout());
+        if (!layout) {
+            nh_log("could not obtain QHBoxLayout from %s", fName);
+            continue;
+        }
+        if (!settings.clockInPlacement(p) && !settings.batteryInPlacement(p)) {
+            nh_log("nothing to add to %s", fName);
+            continue;
+        }
+        // Set the stretch value of the existing caption
+        layout->setStretch(0, 2);
+        setFooterStylesheet(rf);
+        // Both clock & battery in the same postion and placement is not allowed
+        if (settings.clockInPlacement(p) && settings.batteryInPlacement(p) 
+            && settings.clockPosition() == settings.batteryPosition()) {
+                nh_log("clock and battery level cannot share the same placement and position");
+                continue;
+        }
+        
+        bool lw = false;
+        bool rw = false;
+        if (settings.clockInPlacement(p)) {
             TimeLabel *tl = createTimeLabel();
-
             if (settings.clockPosition() == Left) {
-                hl->insertWidget(0, tl, 1, Qt::AlignLeft);
-                hl->addStretch(1);
+                layout->insertWidget(0, tl, 1, Qt::AlignLeft);
+                lw = true;
             } else {
-                hl->insertStretch(0, 1);
-                hl->addWidget(tl, 1, Qt::AlignRight);
+                layout->addWidget(tl, 1, Qt::AlignRight);
+                rw = true;
             }
         }
+        if (settings.batteryInPlacement(p)) {
+            QWidget *bl = createBatteryWidget();
+            if (settings.batteryPosition() == Left) {
+                layout->insertWidget(0, bl, 1, Qt::AlignLeft);
+                lw = true;
+            } else {
+                layout->addWidget(bl, 1, Qt::AlignRight);
+                rw = true;
+            }
+        }
+        if (!lw)
+            layout->insertStretch(0, 1);
+        if (!rw)
+            layout->addStretch(1);
+
+        rf->setProperty(nc_qt_property, true);
     }
 }
 
@@ -205,31 +233,30 @@ TimeLabel* NC::createTimeLabel()
     return tl;
 }
 
-QFrame* NC::createBatteryWidget()
+QWidget* NC::createBatteryWidget()
 {
-    HardwareInterface *hw = HardwareFactory__sharedInstance();
     BatteryType type = settings.batteryType();
-    QFrame *battery = new QFrame();
+    QWidget *battery = new QWidget();
     QHBoxLayout *l = new QHBoxLayout();
     NCBatteryLabel *level = nullptr;
     N3BatteryStatusLabel *icon = nullptr;
 
     if (type == Level || type == Both) {
         int initLevel = getBatteryLevel();
-        level = new NCBatteryLabel();
-        level->setObjectName(nc_widget_name);
+        level = new NCBatteryLabel(initLevel);
         level->setStyleSheet(ncLabelStylesheet());
-        level->setBatteryLevel(initLevel);
-        if (!connect(hw, SIGNAL(battery_level(int)), level, SLOT(setBatteryLevel(int))))
-            nh_log("Failed to connect battery_level signal to label");
-        l->addWidget(level);
+        l->addWidget(level, 0, Qt::AlignVCenter);
     }
+
     if (type == Icon || type == Both) {
         icon = (N3BatteryStatusLabel*) ::operator new (256); // Actual size 208 bytes
-        l->addWidget(icon);
+        N3BatteryStatusLabel__N3BatteryStatusLabel(icon, nullptr);
+        l->addWidget(icon, 0, Qt::AlignVCenter);
     }
-    battery->setLayout(l);
 
+    l->setContentsMargins(0, 0, 0, 0);
+    battery->setLayout(l);
+    battery->show();
     return battery;
 }
 
@@ -238,12 +265,13 @@ QFrame* NC::createBatteryWidget()
 int NC::getBatteryLevel()
 {
     int battery = 100;
-    QFile bcFile = QFile::exists(nc_sysfs_gen_bat_cap) 
-                            ? QFile(nc_sysfs_gen_bat_cap)
-                            : QFile(nc_sysfs_mc13892_bat_cap);
+    QFile bcFile;
+    bcFile.setFileName(QFile::exists(nc_sysfs_gen_bat_cap) 
+                        ? nc_sysfs_gen_bat_cap
+                        : nc_sysfs_mc13892_bat_cap);
     if (bcFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         bool ok = false;
-        int battery = bcFile.readAll().trimmed().toInt(&ok);
+        battery = bcFile.readAll().trimmed().toInt(&ok);
         if (!ok) {
             nh_log("failed to get battery level");
             battery = 100;
@@ -252,8 +280,15 @@ int NC::getBatteryLevel()
     return battery;
 }
 
-NCBatteryLabel::NCBatteryLabel(QWidget *parent) : QLabel(parent)
+NCBatteryLabel::NCBatteryLabel(int initLevel, QWidget *parent) : QLabel(parent)
 {
+    setBatteryLevel(initLevel);
+    setObjectName(nc_widget_name);
+
+    HardwareInterface *hw = HardwareFactory__sharedInstance();
+    if (!connect(hw, SIGNAL(battery_level(int)), this, SLOT(setBatteryLevel(int))))
+        nh_log("Failed to connect battery_level signal to label");
+    //show();
 }
 
 void NCBatteryLabel::setBatteryLevel(int level)

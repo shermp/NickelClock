@@ -21,6 +21,8 @@ class NCSettings
         Position batteryPosition();
         Placement clockPlacement();
         Placement batteryPlacement();
+        bool clockInPlacement(Placement const p);
+        bool batteryInPlacement(Placement const p);
         BatteryType batteryType();
         int margin();
 

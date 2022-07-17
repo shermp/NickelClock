@@ -40,7 +40,6 @@ and the default settings file is as follows:
 ```ini
 [General]
 Margin=Auto
-WidgetOrder=ClockFirst
 
 [Battery]
 BatteryType=Level
@@ -77,11 +76,10 @@ The allowed values for `BatteryType` in `[Battery]` are:
 - `Icon`
 - `Both`
 
-If both the clock and the battery level are set to the same position, the 
-setting `WidgetOrder` in `[General]` determines their display order. The 
-allowed values are:
-- `ClockFirst`
-- `BatteryFirst`
+The battery icon is not compatible with dark mode, the icon is not inverted.
+
+Setting both clock and battery level to the same placement and position is 
+not supported, and the result will be neither showing.
 
 No other customisation is available at this time.
 

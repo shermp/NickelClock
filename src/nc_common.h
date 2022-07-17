@@ -8,7 +8,6 @@
 enum Position { Left, Right };
 enum Placement { Header, Footer };
 enum Widget { Clock, Battery };
-enum WidgetOrder { ClockFirst, BatteryFirst };
 enum BatteryType { Level, Icon, Both };
 enum Margin { Auto = -1 };
 

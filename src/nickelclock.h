@@ -36,7 +36,7 @@ class NC : public QObject
         void updateFooterMargins(QLayout *layout);
         void getFooterStylesheet();
         void createNCLabelStylesheet();
-        QFrame* createBatteryWidget();
+        QWidget* createBatteryWidget();
         TimeLabel* createTimeLabel();
         int getBatteryLevel();
 };
@@ -45,7 +45,7 @@ class NCBatteryLabel : public QLabel
 {
     Q_OBJECT
     public:
-        NCBatteryLabel(QWidget *parent = nullptr);
+        NCBatteryLabel(int initLevel, QWidget *parent = nullptr);
     public Q_SLOTS:
         void setBatteryLevel(int level);
 };

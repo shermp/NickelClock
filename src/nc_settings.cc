@@ -70,11 +70,6 @@ void NCSettings::syncSettings()
     }
     settings.setValue(SL(Margin), marginStr);
 
-    QString order = settings.value(SL(WidgetOrder), SL(ClockFirst)).toString();
-    if (order != SL(ClockFirst) && order != SL(BatteryFirst))
-        order = SL(ClockFirst);
-    settings.setValue(SL(WidgetOrder), order);
-
     settings.sync();
 }
 
@@ -82,6 +77,16 @@ Position NCSettings::clockPosition() { return position(SL(Clock)); }
 Position NCSettings::batteryPosition() { return position(SL(Battery)); }
 Placement NCSettings::clockPlacement() { return placement(SL(Clock)); }
 Placement NCSettings::batteryPlacement() { return placement(SL(Battery)); }
+
+bool NCSettings::clockInPlacement(Placement const p)
+{
+    return clockEnabled() && clockPlacement() == p;
+}
+
+bool NCSettings::batteryInPlacement(Placement const p)
+{
+    return batteryEnabled() && batteryPlacement() == p;
+}
 
 Position NCSettings::position(QString const& group)
 {
