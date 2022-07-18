@@ -6,44 +6,17 @@
 #include <QLabel>
 #include <QRegularExpression>
 #include <QString>
-#include <QSettings>
+#include <QFrame>
 
+#include "nc_common.h"
+#include "nc_settings.h"
+
+typedef QObject HardwareInterface;
 typedef QWidget ReadingView;
 typedef QWidget ReadingFooter;
 typedef QLabel TimeLabel;
 typedef QLabel TouchLabel;
-
-enum class TimePos {Left, Right};
-enum class TimePlacement {Header, Footer};
-
-#ifndef NICKEL_CLOCK_DIR
-    #define NICKEL_CLOCK_DIR "/mnt/onboard/.adds/nickelclock"
-#endif
-
-class NCSettings 
-{
-    public:
-        NCSettings(QRect const& screenGeom);
-        
-        TimePlacement placement();
-        TimePos position();
-        int hMargin();
-    private:
-        QSettings settings;
-        QString placeKey = "placement";
-        QString posKey = "position";
-        QString marginKey = "hor_margin";
-        QString placeHeader = "header";
-        QString placeFooter = "footer";
-        QString posLeft = "left";
-        QString posRight = "right";
-        QString marginAuto = "auto";
-
-        int maxHMargin = 200;
-
-        void syncSettings();
-        void setMaxHMargin(QRect const& screenGeom);
-};
+typedef QLabel N3BatteryStatusLabel;
 
 class NC : public QObject
 {
@@ -52,17 +25,32 @@ class NC : public QObject
         NCSettings settings;
         
         NC(QRect const& screenGeom);
-        void addTimeToFooter(ReadingFooter *rf, TimePos position);
+        void addItemsToFooter(ReadingView *rv);
         void setFooterStylesheet(ReadingFooter *rf);
-        QString const& timeLabelStylesheet();
+        QString const& ncLabelStylesheet();
     private:
         int origFooterMargin = -1;
         QString origFooterStylesheet;
-        QString tlStylesheet;
+        QString ncLblStylesheet;
         QRegularExpression footerMarginRe;
+        QString batteryCapFilename;
         void updateFooterMargins(QLayout *layout);
         void getFooterStylesheet();
-        void createTimeLabelStylesheet();
+        void createNCLabelStylesheet();
+        QWidget* createBatteryWidget();
+        TimeLabel* createTimeLabel();
+        int getBatteryLevel();
+};
+
+class NCBatteryLabel : public QLabel
+{
+    Q_OBJECT
+    public:
+        NCBatteryLabel(int initLevel, QString const& label, QWidget *parent = nullptr);
+    public Q_SLOTS:
+        void setBatteryLevel(int level);
+    private:
+        QString label;
 };
 
 #endif
