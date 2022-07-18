@@ -266,10 +266,12 @@ QWidget* NC::createBatteryWidget()
 int NC::getBatteryLevel()
 {
     int battery = 100;
+    if (batteryCapFilename.isEmpty())
+        batteryCapFilename = QFile::exists(nc_sysfs_gen_bat_cap)
+                              ? nc_sysfs_gen_bat_cap
+                              : nc_sysfs_mc13892_bat_cap;
     QFile bcFile;
-    bcFile.setFileName(QFile::exists(nc_sysfs_gen_bat_cap) 
-                        ? nc_sysfs_gen_bat_cap
-                        : nc_sysfs_mc13892_bat_cap);
+    bcFile.setFileName(batteryCapFilename);
     if (bcFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         bool ok = false;
         battery = bcFile.readAll().trimmed().toInt(&ok);
