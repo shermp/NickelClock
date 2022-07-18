@@ -46,6 +46,7 @@ BatteryType=Level
 Enabled=false
 Placement=Header
 Position=Right
+LevelTemplate=%1%
 
 [Clock]
 Enabled=true
@@ -55,29 +56,26 @@ Position=Right
 ```
 The following settings may be set. **Note that entries are case sensitive**:
 
-The allowed values for `Margin` in `[General]` are:
-- `Auto`
-- Any whole number greater than zero, up to a quarter of your screen width.
+### [General] settings
 
-The allowed values for `Placement` in `[Clock]` and `[Battery]` are:
-- `Header`
-- `Footer`
+|Setting|Values|
+|-------|------|
+|`Margin`|`Auto`, or any whole number greater than zero, up to a quarter of your screen width.|
 
-The allowed values for `Position` in `[Clock]` and `[Battery]` are:
-- `Left`
-- `Right`
+### [Clock] and [Battery] settings
 
-The allowed values for `Enabled` in `[Clock]` and `[Battery]` are:
-- `true`
-- `false`
+|Setting|Values|
+|-------|------|
+|`Placement`|`Header`, `Footer`|
+|`Position` |`Left`, `Right`|
+|`Enabled`  |`true`, `false`|
 
-The allowed values for `BatteryType` in `[Battery]` are:
-- `Level`
-- `Icon`
-- `Both`
+### [Battery] settings
 
-The allowed value for `LevelTemplate` in `[Battery]` is any string that contains 
-the sequence `%1`. The default value is `%1%`, which corresponds to `100%`.
+|Setting|Values|
+|-------|------|
+|`BatteryType`|`Level`, `Icon`, `Both`|
+|`LevelTemplate`|Any string that contains `%1`|
 
 The battery icon is not compatible with dark mode, the icon is not inverted.
 
