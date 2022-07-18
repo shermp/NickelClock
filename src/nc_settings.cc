@@ -56,6 +56,11 @@ void NCSettings::syncSettings()
             if (type != SL(Level) && type != SL(Icon) && type != SL(Both))
                 type = SL(Level);
             settings.setValue(SL(BatteryType), type);
+
+            QString label = settings.value(batteryLabelKey, QSL("%1%")).toString();
+            if (!label.contains("%1")) 
+                label = QSL("%1%");
+            settings.setValue(batteryLabelKey, label);
         }
 
         settings.endGroup();
@@ -120,6 +125,11 @@ BatteryType NCSettings::batteryType()
     QString type = settings.value(key).toString();
     return type == SL(Both) ? Both
                             : type == SL(Level) ? Level : Icon;
+}
+
+QString NCSettings::batteryLabel()
+{
+    return settings.value(QSL("%1/%2").arg(SL(Battery)).arg(batteryLabelKey)).toString();
 }
 
 int NCSettings::margin()

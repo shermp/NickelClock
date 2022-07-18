@@ -45,9 +45,11 @@ class NCBatteryLabel : public QLabel
 {
     Q_OBJECT
     public:
-        NCBatteryLabel(int initLevel, QWidget *parent = nullptr);
+        NCBatteryLabel(int initLevel, QString const& label, QWidget *parent = nullptr);
     public Q_SLOTS:
         void setBatteryLevel(int level);
+    private:
+        QString label;
 };
 
 #endif

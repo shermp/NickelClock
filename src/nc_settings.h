@@ -24,12 +24,14 @@ class NCSettings
         bool clockInPlacement(Placement const p);
         bool batteryInPlacement(Placement const p);
         BatteryType batteryType();
+        QString batteryLabel();
         int margin();
 
     private:
         QSettings settings;
         int maxHMargin = 200;
         QString enabledKey = "Enabled";
+        QString batteryLabelKey = "LevelTemplate";
 
         void setMaxHMargin(QRect const& screenGeom);
         Position position(QString const& group);

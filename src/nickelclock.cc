@@ -243,7 +243,7 @@ QWidget* NC::createBatteryWidget()
 
     if (type == Level || type == Both) {
         int initLevel = getBatteryLevel();
-        level = new NCBatteryLabel(initLevel);
+        level = new NCBatteryLabel(initLevel, settings.batteryLabel());
         level->setStyleSheet(ncLabelStylesheet());
         l->addWidget(level, 0, Qt::AlignVCenter);
     }
@@ -281,7 +281,8 @@ int NC::getBatteryLevel()
     return battery;
 }
 
-NCBatteryLabel::NCBatteryLabel(int initLevel, QWidget *parent) : QLabel(parent)
+NCBatteryLabel::NCBatteryLabel(int initLevel, QString const& lbl, QWidget *parent) 
+    : QLabel(parent), label(lbl)
 {
     setBatteryLevel(initLevel);
     setObjectName(nc_widget_name);
@@ -289,12 +290,11 @@ NCBatteryLabel::NCBatteryLabel(int initLevel, QWidget *parent) : QLabel(parent)
     HardwareInterface *hw = HardwareFactory__sharedInstance();
     if (!connect(hw, SIGNAL(battery_level(int)), this, SLOT(setBatteryLevel(int))))
         nh_log("Failed to connect battery_level signal to label");
-    //show();
 }
 
 void NCBatteryLabel::setBatteryLevel(int level)
 {
-    QString txt = QString::number(level) + "%";
+    QString txt = label.arg(level);
     setText(txt);
 }
 

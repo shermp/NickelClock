@@ -76,6 +76,9 @@ The allowed values for `BatteryType` in `[Battery]` are:
 - `Icon`
 - `Both`
 
+The allowed value for `LevelTemplate` in `[Battery]` is any string that contains 
+the sequence `%1`. The default value is `%1%`, which corresponds to `100%`.
+
 The battery icon is not compatible with dark mode, the icon is not inverted.
 
 Setting both clock and battery level to the same placement and position is 
