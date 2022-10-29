@@ -97,6 +97,16 @@ NickelHook(
     .uninstall = &nc_uninstall
 )
 
+// Older firmware versions have [newHeader=true] and [newFooter=true] as 
+// part of their QSS selector. Create and set those properties here.
+static void set_extra_props(QWidget* w) {
+    if (w) {
+        for (auto prop : {"newHeader", "newFooter"}) {
+            w->setProperty(prop, true);
+        }
+    }
+}
+
 NC::NC(QRect const& screenGeom) 
             : QObject(nullptr), 
               settings(screenGeom),
@@ -229,6 +239,7 @@ TimeLabel* NC::createTimeLabel()
     tl->setObjectName(nc_widget_name);
     auto hAlign = settings.clockPosition() == Left ? Qt::AlignLeft : Qt::AlignRight;
     tl->setAlignment(hAlign | Qt::AlignVCenter);
+    set_extra_props(tl);
     tl->setStyleSheet(ncLabelStylesheet());
     return tl;
 }
@@ -288,10 +299,7 @@ NCBatteryLabel::NCBatteryLabel(int initLevel, QString const& lbl, QWidget *paren
 {
     setBatteryLevel(initLevel);
     setObjectName(nc_widget_name);
-    // Older firmware versions have [newHeader=true] and [newFooter=true] as 
-    // part of their QSS selector. Create and set those properties here.
-    setProperty("newHeader", true);
-    setProperty("newFooter", true);
+    set_extra_props(this);
     HardwareInterface *hw = HardwareFactory__sharedInstance();
     if (!connect(hw, SIGNAL(battery_level(int)), this, SLOT(setBatteryLevel(int))))
         nh_log("Failed to connect battery_level signal to label");
