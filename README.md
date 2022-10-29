@@ -30,6 +30,9 @@ and [NanoClock](https://github.com/NiLuJe/NanoClock).
 
 ## Configure NickelCLock
 
+*NickelClock 0.2.0 used a different settings format. When upgrading, settings are 
+automatically migrated.*
+
 The clock and battery may be positioned independently in one of four locations: 
 
 **Left header**, **Right header**, **Left footer**, **Right footer**
