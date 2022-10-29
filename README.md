@@ -30,40 +30,62 @@ and [NanoClock](https://github.com/NiLuJe/NanoClock).
 
 ## Configure NickelCLock
 
-The clock may be displayed in one of four locations on the screen. They are:
+The clock and battery may be positioned independently in one of four locations: 
 
-- Header
-    - left
-    - right
-- footer
-    - left
-    - right
+**Left header**, **Right header**, **Left footer**, **Right footer**
 
-You can set this location in `.adds/nickelclock/settings.ini`. The default 
-settings file contains:
+Positioning and other settings are saved in `.adds/nickelclock/settings.ini`, 
+and the default settings file is as follows:
 
 ```ini
 [General]
-hor_margin=auto
-placement=header
-position=right
+Margin=Auto
+
+[Battery]
+BatteryType=Level
+Enabled=false
+Placement=Header
+Position=Right
+LevelTemplate=%1%
+
+[Clock]
+Enabled=true
+Placement=Header
+Position=Right
+
 ```
+The following settings may be set. **Note that entries are case sensitive**:
 
-The allowed values for `placement` are:
-- `header`
-- `footer`
+### [General] settings
 
-The allowed values for `position` are:
-- `left`
-- `right`
+|Setting|Values|
+|-------|------|
+|`Margin`|`Auto`, or any whole number greater than zero, up to a quarter of your screen width.|
 
-`hor_margin` can be set to `auto` for an automatic margin, or any whole number 
-value above zero, up to a quarter of your screen width. 
-The default value is `auto`.
+### [Clock] and [Battery] settings
+
+|Setting|Values|
+|-------|------|
+|`Placement`|`Header`, `Footer`|
+|`Position` |`Left`, `Right`|
+|`Enabled`  |`true`, `false`|
+
+### [Battery] settings
+
+|Setting|Values|
+|-------|------|
+|`BatteryType`|`Level`, `Icon`, `Both`|
+|`LevelTemplate`|Any string that contains `%1`|
+
+The battery icon is not compatible with dark mode, the icon is not inverted.
+
+Setting both clock and battery level to the same placement and position is 
+not supported, and the result will be neither showing.
 
 No other customisation is available at this time.
 
-If you have disabled your header and/or footer, the clock may not show.
+If you have disabled the header and/or footer in the reading settings, the 
+clock or battery may not show.
 
 ## Compatibility
 

@@ -12,89 +12,16 @@
 #include <QMargins>
 #include <QScreen>
 
-#include <NickelHook.h>
-
+#include "nc_common.h"
 #include "nickelclock.h"
 
+#include <NickelHook.h>
+
 const char nc_qt_property[] = "NickelClock";
-const char nc_widget_name[] = "ncTimeLabel";
+const char nc_widget_name[] = "ncLabelWidget";
 
-
-
-NCSettings::NCSettings(QRect const& screenGeom)
-    : settings(NICKEL_CLOCK_DIR "/settings.ini", QSettings::IniFormat)
-{
-    setMaxHMargin(screenGeom);
-    syncSettings();
-}
-
-void NCSettings::syncSettings()
-{
-    settings.sync();
-    QString place = settings.value(placeKey, placeHeader).toString();
-    QString pos = settings.value(posKey, posRight).toString();
-    QString marginStr = settings.value(marginKey, marginAuto).toString();
-    if (place != placeHeader && place != placeFooter)
-        place = placeHeader;
-    if (pos != posLeft && pos != posRight) {
-        pos = posRight;
-    }
-    if (marginStr != marginAuto) {
-        bool ok = false;
-        int margin = marginStr.toInt(&ok);
-        if (!ok || margin > maxHMargin || margin < 0 ) {
-            marginStr = marginAuto;
-        } else {
-            marginStr = QString::number(margin);
-        }
-    }
-    settings.setValue(placeKey, place);
-    settings.setValue(posKey, pos);
-    settings.setValue(marginKey, marginStr);
-    settings.sync();
-}
-
-TimePlacement NCSettings::placement()
-{
-    syncSettings();
-    QString place = settings.value(placeKey).toString();
-    if (place == placeFooter) {
-        return TimePlacement::Footer;
-    } else {
-        return TimePlacement::Header;
-    }
-}
-
-TimePos NCSettings::position()
-{
-    syncSettings();
-    QString pos = settings.value(posKey).toString();
-    if (pos == posLeft) {
-        return TimePos::Left;
-    } else {
-        return TimePos::Right;
-    }
-}
-
-int NCSettings::hMargin()
-{
-    syncSettings();
-    bool ok = false;
-    int margin = -1;
-    QString marginStr = settings.value(marginKey).toString();
-    if (marginStr != marginAuto) {
-        margin = marginStr.toInt(&ok);
-    }
-    return ok ? margin : -1;
-}
-
-void NCSettings::setMaxHMargin(QRect const& screenGeom)
-{
-    int w = screenGeom.width() < screenGeom.height() ? screenGeom.width()
-                                                     : screenGeom.height();
-    maxHMargin = w / 4;
-    nh_log("screen width: %d, setting margin: %d", w, maxHMargin);
-}
+const char nc_sysfs_gen_bat_cap[] = "/sys/class/power_supply/battery/capacity";
+const char nc_sysfs_mc13892_bat_cap[] = "/sys/class/power_supply/mc13892_bat/capacity";
 
 NC *nc = nullptr;
 
@@ -103,6 +30,9 @@ NC *nc = nullptr;
 void (*ReadingView__ReaderIsDoneLoading)(ReadingView *_this);
 // TimeLabel is what the status bar uses to show the time
 TimeLabel *(*TimeLabel__TimeLabel)(TimeLabel *_this, QWidget *parent);
+
+HardwareInterface *(*HardwareFactory__sharedInstance)();
+N3BatteryStatusLabel *(*N3BatteryStatusLabel__N3BatteryStatusLabel)(N3BatteryStatusLabel* _this, QWidget *parent);
 
 static struct nh_info NickelClock = {
     .name           = "NickelClock",
@@ -128,6 +58,16 @@ static struct nh_dlsym NickelClockDlsym[] = {
         .name    = "_ZN9TimeLabelC1EP7QWidget",
         .out     = nh_symoutptr(TimeLabel__TimeLabel),
         .desc    = "TimeLabel::TimeLabel()"
+    },
+    {
+        .name    = "_ZN15HardwareFactory14sharedInstanceEv",
+        .out     = nh_symoutptr(HardwareFactory__sharedInstance),
+        .desc    = "HardwareFactory::sharedInstance()"
+    },
+    {
+        .name    = "_ZN20N3BatteryStatusLabelC1EP7QWidget",
+        .out     = nh_symoutptr(N3BatteryStatusLabel__N3BatteryStatusLabel),
+        .desc    = "N3BatteryStatusLabel::N3BatteryStatusLabel()"
     },
     {0},
 };
@@ -157,13 +97,23 @@ NickelHook(
     .uninstall = &nc_uninstall
 )
 
+// Older firmware versions have [newHeader=true] and [newFooter=true] as 
+// part of their QSS selector. Create and set those properties here.
+static void set_extra_props(QWidget* w) {
+    if (w) {
+        for (auto prop : {"newHeader", "newFooter"}) {
+            w->setProperty(prop, true);
+        }
+    }
+}
+
 NC::NC(QRect const& screenGeom) 
             : QObject(nullptr), 
               settings(screenGeom),
               footerMarginRe("qproperty-footerMargin:\\s*\\d+;")
 {
     getFooterStylesheet();
-    createTimeLabelStylesheet();
+    createNCLabelStylesheet();
 }
 
 void NC::getFooterStylesheet()
@@ -178,57 +128,89 @@ void NC::getFooterStylesheet()
 
 // Creates a stylesheet for our TimeLabel which is derived from the
 // ReadingFooter stylesheet, without the ReadingFooter selectors
-void NC::createTimeLabelStylesheet()
+void NC::createNCLabelStylesheet()
 {
-    if (tlStylesheet.isEmpty()) {
+    if (ncLblStylesheet.isEmpty()) {
         getFooterStylesheet();
         int index = origFooterStylesheet.indexOf("#caption");
         if (index == -1)
             return;
-        tlStylesheet = origFooterStylesheet;
-        tlStylesheet.remove(0, index);
-        tlStylesheet.replace("#caption", QString("#%1").arg(nc_widget_name));
-        tlStylesheet.append(QString("\n#%1 {padding: 0px;}").arg(nc_widget_name));
+        ncLblStylesheet = origFooterStylesheet;
+        ncLblStylesheet.remove(0, index);
+        ncLblStylesheet.replace("#caption", QString("#%1").arg(nc_widget_name));
+        ncLblStylesheet.append(QString("\n#%1 {padding: 0px;}").arg(nc_widget_name));
     }
 }
 
-QString const& NC::timeLabelStylesheet()
+QString const& NC::ncLabelStylesheet()
 {
-    return tlStylesheet;
+    return ncLblStylesheet;
 }
 
 // The ReadingFooter uses a QHBoxLayout QLayout with a single widget (the 
 // "caption"), which is a QLabel.
 // We need to add a TimeLabel widget here, and insert some stretchable spacing 
 // to ensure that the caption remains centred. 
-void NC::addTimeToFooter(ReadingFooter *rf, TimePos position) 
+void NC::addItemsToFooter(ReadingView *rv) 
 {
-    QLayout *l = nullptr;
-    if (rf && !rf->property(nc_qt_property).isValid() && (l = rf->layout())) {
-        nh_log("ReadingView header layout found");
-        rf->setProperty(nc_qt_property, true);
-        QHBoxLayout *hl = qobject_cast<QHBoxLayout*>(l);
-        if (hl) {
-            nh_log("Adding TimeLabel widget to ReadingView header");
-            setFooterStylesheet(rf);
-            
-            hl->setStretch(0, 2);
-
-            TimeLabel *tl = (TimeLabel*) ::operator new (128); // Actual size 88 bytes
-            TimeLabel__TimeLabel(tl, nullptr);
-            tl->setObjectName(nc_widget_name);
-            auto hAlign = position == TimePos::Left ? Qt::AlignLeft : Qt::AlignRight;
-            tl->setAlignment(hAlign | Qt::AlignVCenter);
-            tl->setStyleSheet(timeLabelStylesheet());
-
-            if (position == TimePos::Left) {
-                hl->insertWidget(0, tl, 1, Qt::AlignLeft);
-                hl->addStretch(1);
+    for (auto p : {Header, Footer}) {
+        const char *fName = p == Header ? "header" : "footer";
+        ReadingFooter *rf = rv->findChild<ReadingFooter*>(fName);
+        if (!rf) {
+            nh_log("could not find %s", fName);
+            continue;
+        }
+        if (rf->property(nc_qt_property).isValid()) {
+            nh_log("skipping already setup %s", fName);
+            continue;
+        }
+        QHBoxLayout *layout = qobject_cast<QHBoxLayout*>(rf->layout());
+        if (!layout) {
+            nh_log("could not obtain QHBoxLayout from %s", fName);
+            continue;
+        }
+        if (!settings.clockInPlacement(p) && !settings.batteryInPlacement(p)) {
+            nh_log("nothing to add to %s", fName);
+            continue;
+        }
+        // Set the stretch value of the existing caption
+        layout->setStretch(0, 2);
+        setFooterStylesheet(rf);
+        // Both clock & battery in the same postion and placement is not allowed
+        if (settings.clockInPlacement(p) && settings.batteryInPlacement(p) 
+            && settings.clockPosition() == settings.batteryPosition()) {
+                nh_log("clock and battery level cannot share the same placement and position");
+                continue;
+        }
+        
+        bool lw = false;
+        bool rw = false;
+        if (settings.clockInPlacement(p)) {
+            TimeLabel *tl = createTimeLabel();
+            if (settings.clockPosition() == Left) {
+                layout->insertWidget(0, tl, 1, Qt::AlignLeft);
+                lw = true;
             } else {
-                hl->insertStretch(0, 1);
-                hl->addWidget(tl, 1, Qt::AlignRight);
+                layout->addWidget(tl, 1, Qt::AlignRight);
+                rw = true;
             }
         }
+        if (settings.batteryInPlacement(p)) {
+            QWidget *bl = createBatteryWidget();
+            if (settings.batteryPosition() == Left) {
+                layout->insertWidget(0, bl, 1, Qt::AlignLeft);
+                lw = true;
+            } else {
+                layout->addWidget(bl, 1, Qt::AlignRight);
+                rw = true;
+            }
+        }
+        if (!lw)
+            layout->insertStretch(0, 1);
+        if (!rw)
+            layout->addStretch(1);
+
+        rf->setProperty(nc_qt_property, true);
     }
 }
 
@@ -242,7 +224,7 @@ void NC::setFooterStylesheet(ReadingFooter *rf)
     auto l = rf->layout();
     if (origFooterMargin < 0)
         origFooterMargin = l->contentsMargins().left();
-    int newMargin = settings.hMargin();
+    int newMargin = settings.margin();
     if (newMargin < 0)
         newMargin = origFooterMargin / 10;
     QString s = QStringLiteral("qproperty-footerMargin: %1;").arg(newMargin);
@@ -250,19 +232,91 @@ void NC::setFooterStylesheet(ReadingFooter *rf)
     rf->setStyleSheet(ss.replace(footerMarginRe, s));
 }
 
+TimeLabel* NC::createTimeLabel()
+{
+    TimeLabel *tl = (TimeLabel*) ::operator new (128); // Actual size 88 bytes
+    TimeLabel__TimeLabel(tl, nullptr);
+    tl->setObjectName(nc_widget_name);
+    auto hAlign = settings.clockPosition() == Left ? Qt::AlignLeft : Qt::AlignRight;
+    tl->setAlignment(hAlign | Qt::AlignVCenter);
+    set_extra_props(tl);
+    tl->setStyleSheet(ncLabelStylesheet());
+    return tl;
+}
+
+QWidget* NC::createBatteryWidget()
+{
+    BatteryType type = settings.batteryType();
+    QWidget *battery = new QWidget();
+    QHBoxLayout *l = new QHBoxLayout();
+    NCBatteryLabel *level = nullptr;
+    N3BatteryStatusLabel *icon = nullptr;
+
+    if (type == Level || type == Both) {
+        int initLevel = getBatteryLevel();
+        level = new NCBatteryLabel(initLevel, settings.batteryLabel());
+        level->setStyleSheet(ncLabelStylesheet());
+        l->addWidget(level, 0, Qt::AlignVCenter);
+    }
+
+    if (type == Icon || type == Both) {
+        icon = (N3BatteryStatusLabel*) ::operator new (256); // Actual size 208 bytes
+        N3BatteryStatusLabel__N3BatteryStatusLabel(icon, nullptr);
+        l->addWidget(icon, 0, Qt::AlignVCenter);
+    }
+
+    l->setContentsMargins(0, 0, 0, 0);
+    battery->setLayout(l);
+    battery->setStyleSheet("padding: 0px; margin: 0px; background-color: transparent;");
+    battery->show();
+    return battery;
+}
+
+// Trying to get the battery level out of Nickel seems to be more trouble
+// than it's worth, therefore get it via sysfs
+int NC::getBatteryLevel()
+{
+    int battery = 100;
+    if (batteryCapFilename.isEmpty())
+        batteryCapFilename = QFile::exists(nc_sysfs_gen_bat_cap)
+                              ? nc_sysfs_gen_bat_cap
+                              : nc_sysfs_mc13892_bat_cap;
+    QFile bcFile;
+    bcFile.setFileName(batteryCapFilename);
+    if (bcFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        bool ok = false;
+        battery = bcFile.readAll().trimmed().toInt(&ok);
+        if (!ok) {
+            nh_log("failed to get battery level");
+            battery = 100;
+        }
+    }
+    return battery;
+}
+
+NCBatteryLabel::NCBatteryLabel(int initLevel, QString const& lbl, QWidget *parent) 
+    : QLabel(parent), label(lbl)
+{
+    setBatteryLevel(initLevel);
+    setObjectName(nc_widget_name);
+    set_extra_props(this);
+    HardwareInterface *hw = HardwareFactory__sharedInstance();
+    if (!connect(hw, SIGNAL(battery_level(int)), this, SLOT(setBatteryLevel(int))))
+        nh_log("Failed to connect battery_level signal to label");
+}
+
+void NCBatteryLabel::setBatteryLevel(int level)
+{
+    QString txt = label.arg(level);
+    setText(txt);
+}
+
 // On recent 4.x firmware versions, the header and footer are setup in 
 // Ui_ReadingView::setupUi(). They are ReadingFooter widgets, with names set to 
 // "header" and "footer". This makes it easy to find them with findChild().
 extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) 
 {
-    auto containerName = (nc->settings.placement() == TimePlacement::Header)
-                         ? "header" : "footer";
-
-    // Find header or footer
-    ReadingFooter *rf = _this->findChild<ReadingFooter*>(containerName);
-    if (!rf)
-        nh_log("ReadingFooter '%s' not found in ReadingView", containerName);
-
-    nc->addTimeToFooter(rf, nc->settings.position());
+    nc->settings.syncSettings();
+    nc->addItemsToFooter(_this);
     ReadingView__ReaderIsDoneLoading(_this);
 }
