@@ -34,6 +34,7 @@ class NC : public QObject
         QString ncLblStylesheet;
         QRegularExpression footerMarginRe;
         QString batteryCapFilename;
+        QRect scrGeom;
         void updateFooterMargins(QLayout *layout);
         void getFooterStylesheet();
         void createNCLabelStylesheet();

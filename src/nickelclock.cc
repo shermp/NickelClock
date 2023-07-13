@@ -110,7 +110,8 @@ static void set_extra_props(QWidget* w) {
 NC::NC(QRect const& screenGeom) 
             : QObject(nullptr), 
               settings(screenGeom),
-              footerMarginRe("qproperty-footerMargin:\\s*\\d+;")
+              footerMarginRe("qproperty-footerMargin:\\s*\\d+;"),
+              scrGeom(screenGeom)
 {
     getFooterStylesheet();
     createNCLabelStylesheet();
@@ -176,6 +177,9 @@ void NC::addItemsToFooter(ReadingView *rv)
         // Set the stretch value of the existing caption
         layout->setStretch(0, 2);
         setFooterStylesheet(rf);
+        // Add some spacing between widgets (as a percentage of screen width)
+        auto spacing = static_cast<int>(std::round(scrGeom.width() * 0.015f));
+        layout->setSpacing(spacing);
         // Both clock & battery in the same postion and placement is not allowed
         if (settings.clockInPlacement(p) && settings.batteryInPlacement(p) 
             && settings.clockPosition() == settings.batteryPosition()) {
