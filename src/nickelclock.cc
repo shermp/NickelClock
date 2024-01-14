@@ -322,5 +322,8 @@ extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(Read
 {
     nc->settings.syncSettings();
     nc->addItemsToFooter(_this);
+    if (nc->settings.debugEnabled()) {
+        nh_dump_log();
+    }
     ReadingView__ReaderIsDoneLoading(_this);
 }

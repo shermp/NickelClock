@@ -26,12 +26,14 @@ class NCSettings
         BatteryType batteryType();
         QString batteryLabel();
         int margin();
+        bool debugEnabled();
 
     private:
         QSettings settings;
         int maxHMargin = 200;
         QString enabledKey = "Enabled";
         QString batteryLabelKey = "LevelTemplate";
+        QString debugKey = "Debug";
 
         void setMaxHMargin(QRect const& screenGeom);
         Position position(QString const& group);

@@ -78,6 +78,9 @@ void NCSettings::syncSettings()
     }
     settings.setValue(SL(Margin), marginStr);
 
+    auto debug = settings.value(debugKey, QVariant(false));
+    settings.setValue(debugKey, debug);
+
     settings.sync();
 }
 
@@ -150,3 +153,7 @@ void NCSettings::setMaxHMargin(QRect const& screenGeom)
     maxHMargin = w / 4;
 }
 
+bool NCSettings::debugEnabled()
+{
+    return settings.value(debugKey).toBool();
+}
