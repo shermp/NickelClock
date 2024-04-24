@@ -1,7 +1,5 @@
 # NickelClock - Show time while reading
 
-**WARNING: This might not work on the new Kobo Clara Colour/BW or Libra Colour!**
-
 A Nickel mod to show time while reading on Kobo ereaders.
 
 This mod adds a clock to the header or footer while reading a book. It is an 
