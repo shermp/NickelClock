@@ -20,8 +20,11 @@
 const char nc_qt_property[] = "NickelClock";
 const char nc_widget_name[] = "ncLabelWidget";
 
-const char nc_sysfs_gen_bat_cap[] = "/sys/class/power_supply/battery/capacity";
-const char nc_sysfs_mc13892_bat_cap[] = "/sys/class/power_supply/mc13892_bat/capacity";
+const char* battery_cap_files[] = {
+    "/sys/class/power_supply/battery/capacity",
+    "/sys/class/power_supply/mc13892_bat/capacity",
+    "/sys/class/power_supply/bd71827_bat/capacity"
+};
 
 NC *nc = nullptr;
 
@@ -281,10 +284,17 @@ QWidget* NC::createBatteryWidget()
 int NC::getBatteryLevel()
 {
     int battery = 100;
-    if (batteryCapFilename.isEmpty())
-        batteryCapFilename = QFile::exists(nc_sysfs_gen_bat_cap)
-                              ? nc_sysfs_gen_bat_cap
-                              : nc_sysfs_mc13892_bat_cap;
+    if (batteryCapFilename.isEmpty()) {
+        for (auto file_name : battery_cap_files) {
+            if (QFile::exists(file_name)) {
+                batteryCapFilename = file_name;
+                break;
+            }
+        }
+    }
+    if (batteryCapFilename.isEmpty()) {
+        return battery;
+    }
     QFile bcFile;
     bcFile.setFileName(batteryCapFilename);
     if (bcFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
