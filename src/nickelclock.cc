@@ -262,7 +262,8 @@ QWidget* NC::createBatteryWidget()
 
     if (type == Level || type == Both) {
         int initLevel = getBatteryLevel();
-        level = new NCBatteryLabel(initLevel, settings.batteryLabel());
+        // Pass 'this' pointer for NC* nc param and parent widget
+        level = new NCBatteryLabel(initLevel, settings.batteryLabel(), this, battery);
         level->setStyleSheet(ncLabelStylesheet());
         l->addWidget(level, 0, Qt::AlignVCenter);
     }
