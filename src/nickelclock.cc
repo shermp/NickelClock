@@ -11,6 +11,7 @@
 #include <QSettings>
 #include <QMargins>
 #include <QScreen>
+#include <QTimer>
 
 #include "nc_common.h"
 #include "nickelclock.h"
@@ -261,7 +262,8 @@ QWidget* NC::createBatteryWidget()
 
     if (type == Level || type == Both) {
         int initLevel = getBatteryLevel();
-        level = new NCBatteryLabel(initLevel, settings.batteryLabel());
+        // Pass 'this' pointer for NC* nc param and parent widget
+        level = new NCBatteryLabel(initLevel, settings.batteryLabel(), this, battery);
         level->setStyleSheet(ncLabelStylesheet());
         l->addWidget(level, 0, Qt::AlignVCenter);
     }
@@ -284,56 +286,53 @@ QWidget* NC::createBatteryWidget()
 int NC::getBatteryLevel()
 {
     int battery = 100;
-    if (batteryCapFilename.isEmpty()) {
-        for (auto file_name : battery_cap_files) {
-            if (QFile::exists(file_name)) {
-                batteryCapFilename = file_name;
-                break;
-            }
+    if (QFile::exists(battery_cap_files[0])) {
+        QFile f(battery_cap_files[0]);
+        if (f.open(QFile::ReadOnly)) {
+            battery = f.readAll().trimmed().toInt();
         }
-    }
-    if (batteryCapFilename.isEmpty()) {
-        return battery;
-    }
-    QFile bcFile;
-    bcFile.setFileName(batteryCapFilename);
-    if (bcFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        bool ok = false;
-        battery = bcFile.readAll().trimmed().toInt(&ok);
-        if (!ok) {
-            nh_log("failed to get battery level");
-            battery = 100;
+    } else if (QFile::exists(battery_cap_files[1])) {
+        QFile f(battery_cap_files[1]);
+        if (f.open(QFile::ReadOnly)) {
+            battery = f.readAll().trimmed().toInt();
+        }
+    } else if (QFile::exists(battery_cap_files[2])) {
+        QFile f(battery_cap_files[2]);
+        if (f.open(QFile::ReadOnly)) {
+            battery = f.readAll().trimmed().toInt();
         }
     }
     return battery;
 }
 
-NCBatteryLabel::NCBatteryLabel(int initLevel, QString const& lbl, QWidget *parent) 
-    : QLabel(parent), label(lbl)
+//---- NCBatteryLabel implementation
+
+NCBatteryLabel::NCBatteryLabel(int initLevel, QString const& label, NC* nc, QWidget *parent)
+    : QLabel(parent), m_batteryLevel(initLevel), m_label(label), m_nc(nc)
 {
-    setBatteryLevel(initLevel);
-    setObjectName(nc_widget_name);
-    set_extra_props(this);
-    HardwareInterface *hw = HardwareFactory__sharedInstance();
-    if (!connect(hw, SIGNAL(battery_level(int)), this, SLOT(setBatteryLevel(int))))
-        nh_log("Failed to connect battery_level signal to label");
+    updateText();
+    QTimer *timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this, &NCBatteryLabel::updateBatteryLevel);
+    timer->start(30000);
 }
+
 
 void NCBatteryLabel::setBatteryLevel(int level)
 {
-    QString txt = label.arg(level);
-    setText(txt);
+    m_batteryLevel = level;
+    updateText();
 }
 
-// On recent 4.x firmware versions, the header and footer are setup in 
-// Ui_ReadingView::setupUi(). They are ReadingFooter widgets, with names set to 
-// "header" and "footer". This makes it easy to find them with findChild().
-extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) 
+void NCBatteryLabel::updateText()
 {
-    nc->settings.syncSettings();
-    nc->addItemsToFooter(_this);
-    if (nc->settings.debugEnabled()) {
-        nh_dump_log();
-    }
-    ReadingView__ReaderIsDoneLoading(_this);
+    // Example: show battery % plus label
+    setText(QString("%1% %2").arg(m_batteryLevel).arg(m_label));
+}
+
+void NCBatteryLabel::updateBatteryLevel()
+{
+    // Access NC singleton or instance to get battery level
+    int level = m_nc->getBatteryLevel();  // m_nc should be a pointer to your NC instance
+
+    setBatteryLevel(level);
 }
