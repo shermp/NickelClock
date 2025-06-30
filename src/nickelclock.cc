@@ -314,10 +314,7 @@ NCBatteryLabel::NCBatteryLabel(int initLevel, QString const& lbl, QWidget *paren
     setBatteryLevel(initLevel);
     setObjectName(nc_widget_name);
     set_extra_props(this);
-    HardwareInterface *hw = HardwareFactory__sharedInstance();
-    (void)hw;  // Silence unused variable warning
-    //if (!connect(hw, SIGNAL(battery_level(int)), this, SLOT(setBatteryLevel(int))))
-    //     nh_log("Failed to connect battery_level signal to label");
+    // No battery_level signal connection here anymore
 }
 
 void NCBatteryLabel::setBatteryLevel(int level)
@@ -325,6 +322,14 @@ void NCBatteryLabel::setBatteryLevel(int level)
     QString txt = label.arg(level);
     setText(txt);
 }
+
+void NCBatteryLabel::updateBatteryLevel()
+{
+    HardwareInterface *hw = HardwareFactory__sharedInstance();
+    int currentLevel = hw->getBatteryLevel();  // or the correct method for current battery %
+    setBatteryLevel(currentLevel);
+}
+
 
 // On recent 4.x firmware versions, the header and footer are setup in 
 // Ui_ReadingView::setupUi(). They are ReadingFooter widgets, with names set to 
