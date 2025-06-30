@@ -325,7 +325,7 @@ void NCBatteryLabel::setBatteryLevel(int level)
 
 void NCBatteryLabel::updateBatteryLevel()
 {
-    HardwareInterface *hw = HardwareFactory__sharedInstance();
+    auto *hw = RealHardwareClass::sharedInstance();
     int currentLevel = hw->getBatteryLevel();  // or the correct method for current battery %
     setBatteryLevel(currentLevel);
 }
