@@ -315,6 +315,7 @@ NCBatteryLabel::NCBatteryLabel(int initLevel, QString const& lbl, QWidget *paren
     setObjectName(nc_widget_name);
     set_extra_props(this);
     HardwareInterface *hw = HardwareFactory__sharedInstance();
+    (void)hw;  // Silence unused variable warning
     //if (!connect(hw, SIGNAL(battery_level(int)), this, SLOT(setBatteryLevel(int))))
     //     nh_log("Failed to connect battery_level signal to label");
 }
