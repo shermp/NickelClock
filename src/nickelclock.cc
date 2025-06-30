@@ -284,62 +284,56 @@ QWidget* NC::createBatteryWidget()
 int NC::getBatteryLevel()
 {
     int battery = 100;
-    if (batteryCapFilename.isEmpty()) {
-        for (auto file_name : battery_cap_files) {
-            if (QFile::exists(file_name)) {
-                batteryCapFilename = file_name;
-                break;
-            }
+    if (QFile::exists(battery_cap_files[0])) {
+        QFile f(battery_cap_files[0]);
+        if (f.open(QFile::ReadOnly)) {
+            battery = f.readAll().trimmed().toInt();
         }
-    }
-    if (batteryCapFilename.isEmpty()) {
-        return battery;
-    }
-    QFile bcFile;
-    bcFile.setFileName(batteryCapFilename);
-    if (bcFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        bool ok = false;
-        battery = bcFile.readAll().trimmed().toInt(&ok);
-        if (!ok) {
-            nh_log("failed to get battery level");
-            battery = 100;
+    } else if (QFile::exists(battery_cap_files[1])) {
+        QFile f(battery_cap_files[1]);
+        if (f.open(QFile::ReadOnly)) {
+            battery = f.readAll().trimmed().toInt();
+        }
+    } else if (QFile::exists(battery_cap_files[2])) {
+        QFile f(battery_cap_files[2]);
+        if (f.open(QFile::ReadOnly)) {
+            battery = f.readAll().trimmed().toInt();
         }
     }
     return battery;
 }
 
-NCBatteryLabel::NCBatteryLabel(int initLevel, QString const& lbl, QWidget *parent) 
-    : QLabel(parent), label(lbl)
+//---- NCBatteryLabel implementation
+
+NCBatteryLabel::NCBatteryLabel(int level, QString label, QWidget *parent)
+    : QLabel(parent),
+      m_batteryLevel(level),
+      m_label(label)
 {
-    setBatteryLevel(initLevel);
-    setObjectName(nc_widget_name);
-    set_extra_props(this);
-    // No battery_level signal connection here anymore
+    updateText();
+    connect(HardwareFactory__sharedInstance(), &HardwareInterface::batteryStatusChanged,
+            this, &NCBatteryLabel::updateBatteryLevel);
 }
 
 void NCBatteryLabel::setBatteryLevel(int level)
 {
-    QString txt = label.arg(level);
-    setText(txt);
+    m_batteryLevel = level;
+    updateText();
+}
+
+void NCBatteryLabel::updateText()
+{
+    setText(QString("%1%2").arg(m_batteryLevel).arg(m_label));
 }
 
 void NCBatteryLabel::updateBatteryLevel()
 {
-    auto *hw = RealHardwareClass::sharedInstance();
-    int currentLevel = hw->getBatteryLevel();  // or the correct method for current battery %
-    setBatteryLevel(currentLevel);
-}
-
-
-// On recent 4.x firmware versions, the header and footer are setup in 
-// Ui_ReadingView::setupUi(). They are ReadingFooter widgets, with names set to 
-// "header" and "footer". This makes it easy to find them with findChild().
-extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) 
-{
-    nc->settings.syncSettings();
-    nc->addItemsToFooter(_this);
-    if (nc->settings.debugEnabled()) {
-        nh_dump_log();
+    HardwareInterface *hw = HardwareFactory__sharedInstance();
+    if (!hw) {
+        nh_log("Failed to get hardware interface instance");
+        return;
     }
-    ReadingView__ReaderIsDoneLoading(_this);
+    int level = NC::getBatteryLevel(); // fallback method from sysfs
+    setBatteryLevel(level);
 }
+
