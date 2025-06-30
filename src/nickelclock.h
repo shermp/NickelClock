@@ -60,12 +60,14 @@ private slots:
     void updateBatteryLevel();
 
 private:
-    NC* m_nc;
-    void updateText();
-
-    int m_batteryLevel;
+    int m_batteryLevel;  // put these two first
     QString m_label;
+
+    NC* m_nc;            // pointer last
+
+    void updateText();
 };
+
 
 
 #endif
