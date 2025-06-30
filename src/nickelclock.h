@@ -52,7 +52,7 @@ private:
 class NCBatteryLabel : public QLabel {
     Q_OBJECT
 public:
-    NCBatteryLabel(int initLevel, QString const& label, QWidget *parent = nullptr);
+    NCBatteryLabel(int initLevel, QString const& label, NC* nc, QWidget *parent = nullptr);
 
     void setBatteryLevel(int level);
 
@@ -60,6 +60,7 @@ private slots:
     void updateBatteryLevel();
 
 private:
+    NC* m_nc;
     void updateText();
 
     int m_batteryLevel;

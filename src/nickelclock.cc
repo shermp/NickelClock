@@ -11,6 +11,7 @@
 #include <QSettings>
 #include <QMargins>
 #include <QScreen>
+#include <QTimer>
 
 #include "nc_common.h"
 #include "nickelclock.h"
@@ -305,18 +306,15 @@ int NC::getBatteryLevel()
 
 //---- NCBatteryLabel implementation
 
-NCBatteryLabel::NCBatteryLabel(int level, QString const& label, QWidget *parent)
-    : QLabel(parent),
-      m_batteryLevel(level),
-      m_label(label)
+NCBatteryLabel::NCBatteryLabel(int initLevel, QString const& label, NC* nc, QWidget *parent)
+    : QLabel(parent), m_batteryLevel(initLevel), m_label(label), m_nc(nc)
 {
     updateText();
-    // Just update battery level periodically, e.g. every 30s
     QTimer *timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, &NCBatteryLabel::updateBatteryLevel);
     timer->start(30000);
-
 }
+
 
 void NCBatteryLabel::setBatteryLevel(int level)
 {
