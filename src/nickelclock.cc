@@ -311,9 +311,11 @@ NCBatteryLabel::NCBatteryLabel(int level, QString const& label, QWidget *parent)
       m_label(label)
 {
     updateText();
-    // Assuming HardwareFactory__sharedInstance() returns some battery signal source
-    connect(HardwareFactory__sharedInstance(), &HardwareInterface::batteryStatusChanged,
-            this, &NCBatteryLabel::updateBatteryLevel);
+    // Just update battery level periodically, e.g. every 30s
+    QTimer *timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this, &NCBatteryLabel::updateBatteryLevel);
+    timer->start(30000);
+
 }
 
 void NCBatteryLabel::setBatteryLevel(int level)
@@ -330,13 +332,8 @@ void NCBatteryLabel::updateText()
 
 void NCBatteryLabel::updateBatteryLevel()
 {
-    // Use the instance `nc` of class NC to get battery level (replace `nc` with your actual instance)
-    extern NC* nc; // or pass pointer in constructor if you prefer
-
-    int level = 100; // default fallback
-    if (nc) {
-        level = nc->getBatteryLevel();
-    }
+    // Access NC singleton or instance to get battery level
+    int level = m_nc->getBatteryLevel();  // m_nc should be a pointer to your NC instance
 
     setBatteryLevel(level);
 }

@@ -21,27 +21,33 @@ typedef QLabel N3BatteryStatusLabel;
 class NC : public QObject
 {
     Q_OBJECT
-    public:
-        NCSettings settings;
+public:
+    NCSettings settings;
 
-        NC(QRect const& screenGeom);
-        void addItemsToFooter(ReadingView *rv);
-        void setFooterStylesheet(ReadingFooter *rf);
-        QString const& ncLabelStylesheet();
-    private:
-        int origFooterMargin = -1;
-        QString origFooterStylesheet;
-        QString ncLblStylesheet;
-        QRegularExpression footerMarginRe;
-        QString batteryCapFilename;
-        QRect scrGeom;
-        void updateFooterMargins(QLayout *layout);
-        void getFooterStylesheet();
-        void createNCLabelStylesheet();
-        QWidget* createBatteryWidget();
-        TimeLabel* createTimeLabel();
-        int getBatteryLevel();
+    NC(QRect const& screenGeom);
+    void addItemsToFooter(ReadingView *rv);
+    void setFooterStylesheet(ReadingFooter *rf);
+    QString const& ncLabelStylesheet();
+
+    int getBatteryLevel();  // <--- make it public!
+
+private:
+    int origFooterMargin = -1;
+    QString origFooterStylesheet;
+    QString ncLblStylesheet;
+    QRegularExpression footerMarginRe;
+    QString batteryCapFilename;
+    QRect scrGeom;
+    void updateFooterMargins(QLayout *layout);
+    void getFooterStylesheet();
+    void createNCLabelStylesheet();
+    QWidget* createBatteryWidget();
+    TimeLabel* createTimeLabel();
+
+    int getBatteryLevelImpl(); // original private version
+
 };
+
 
 class NCBatteryLabel : public QLabel {
     Q_OBJECT
