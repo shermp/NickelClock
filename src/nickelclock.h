@@ -43,16 +43,22 @@ class NC : public QObject
         int getBatteryLevel();
 };
 
-class NCBatteryLabel : public QLabel
-{
+class NCBatteryLabel : public QLabel {
     Q_OBJECT
-    public:
-        NCBatteryLabel(int initLevel, QString const& label, QWidget *parent = nullptr);
-    public Q_SLOTS:
-        void setBatteryLevel(int level);
-        void updateBatteryLevel();
-    private:
-        QString label;
+public:
+    NCBatteryLabel(int initLevel, QString const& label, QWidget *parent = nullptr);
+
+    void setBatteryLevel(int level);
+
+private slots:
+    void updateBatteryLevel();
+
+private:
+    void updateText();
+
+    int m_batteryLevel;
+    QString m_label;
 };
+
 
 #endif

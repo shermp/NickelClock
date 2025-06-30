@@ -305,12 +305,13 @@ int NC::getBatteryLevel()
 
 //---- NCBatteryLabel implementation
 
-NCBatteryLabel::NCBatteryLabel(int level, QString label, QWidget *parent)
+NCBatteryLabel::NCBatteryLabel(int level, QString const& label, QWidget *parent)
     : QLabel(parent),
       m_batteryLevel(level),
       m_label(label)
 {
     updateText();
+    // Assuming HardwareFactory__sharedInstance() returns some battery signal source
     connect(HardwareFactory__sharedInstance(), &HardwareInterface::batteryStatusChanged,
             this, &NCBatteryLabel::updateBatteryLevel);
 }
@@ -323,17 +324,19 @@ void NCBatteryLabel::setBatteryLevel(int level)
 
 void NCBatteryLabel::updateText()
 {
-    setText(QString("%1%2").arg(m_batteryLevel).arg(m_label));
+    // Example: show battery % plus label
+    setText(QString("%1% %2").arg(m_batteryLevel).arg(m_label));
 }
 
 void NCBatteryLabel::updateBatteryLevel()
 {
-    HardwareInterface *hw = HardwareFactory__sharedInstance();
-    if (!hw) {
-        nh_log("Failed to get hardware interface instance");
-        return;
+    // Use the instance `nc` of class NC to get battery level (replace `nc` with your actual instance)
+    extern NC* nc; // or pass pointer in constructor if you prefer
+
+    int level = 100; // default fallback
+    if (nc) {
+        level = nc->getBatteryLevel();
     }
-    int level = NC::getBatteryLevel(); // fallback method from sysfs
+
     setBatteryLevel(level);
 }
-
