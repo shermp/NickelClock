@@ -23,7 +23,7 @@ class NC : public QObject
     Q_OBJECT
     public:
         NCSettings settings;
-        
+
         NC(QRect const& screenGeom);
         void addItemsToFooter(ReadingView *rv);
         void setFooterStylesheet(ReadingFooter *rf);
@@ -50,6 +50,7 @@ class NCBatteryLabel : public QLabel
         NCBatteryLabel(int initLevel, QString const& label, QWidget *parent = nullptr);
     public Q_SLOTS:
         void setBatteryLevel(int level);
+        void updateBatteryLevel();
     private:
         QString label;
 };
