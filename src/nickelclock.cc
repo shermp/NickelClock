@@ -20,12 +20,6 @@
 const char nc_qt_property[] = "NickelClock";
 const char nc_widget_name[] = "ncLabelWidget";
 
-const char* battery_cap_files[] = {
-    "/sys/class/power_supply/battery/capacity",
-    "/sys/class/power_supply/mc13892_bat/capacity",
-    "/sys/class/power_supply/bd71827_bat/capacity"
-};
-
 NC *nc = nullptr;
 
 // This is somewhat arbitrary, but seems a good place to get
@@ -36,6 +30,10 @@ TimeLabel *(*TimeLabel__TimeLabel)(TimeLabel *_this, QWidget *parent);
 
 HardwareInterface *(*HardwareFactory__sharedInstance)();
 N3BatteryStatusLabel *(*N3BatteryStatusLabel__N3BatteryStatusLabel)(N3BatteryStatusLabel* _this, QWidget *parent);
+
+uintptr_t** HardwareInterface__vtable;
+int (*HardwareInterface__getBatteryLevel)(HardwareInterface* _this);
+int (*HardwareInterfaceDerived__getBatteryLevel)(HardwareInterface* _this);
 
 static struct nh_info NickelClock = {
     .name           = "NickelClock",
@@ -71,6 +69,16 @@ static struct nh_dlsym NickelClockDlsym[] = {
         .name    = "_ZN20N3BatteryStatusLabelC1EP7QWidget",
         .out     = nh_symoutptr(N3BatteryStatusLabel__N3BatteryStatusLabel),
         .desc    = "N3BatteryStatusLabel::N3BatteryStatusLabel()"
+    },
+    {
+        .name    = "_ZTV17HardwareInterface",
+        .out     = nh_symoutptr(HardwareInterface__vtable),
+        .desc    = "HardwareInterface::vtable"
+    },
+    {
+        .name    = "_ZNK17HardwareInterface15getBatteryLevelEv",
+        .out     = nh_symoutptr(HardwareInterface__getBatteryLevel),
+        .desc    = "HardwareInterface::getBatteryLevel()"
     },
     {0},
 };
@@ -279,32 +287,40 @@ QWidget* NC::createBatteryWidget()
     return battery;
 }
 
-// Trying to get the battery level out of Nickel seems to be more trouble
-// than it's worth, therefore get it via sysfs
 int NC::getBatteryLevel()
 {
     int battery = 100;
-    if (batteryCapFilename.isEmpty()) {
-        for (auto file_name : battery_cap_files) {
-            if (QFile::exists(file_name)) {
-                batteryCapFilename = file_name;
+    // Call the derived getBatteryLevel() method by finding the offset in the
+    // HardwareInterface vtable, then call the function at the same offset 
+    // in the derived vtable.
+    // Hote, that HardwareInterface appears to be the base class which is
+    // why this trick works.
+    if (!HardwareInterfaceDerived__getBatteryLevel) {
+        struct VPtr {
+            uintptr_t** v;
+        };
+        uintptr_t** vptr = HardwareInterface__vtable + 2;
+        nh_log("%s", "Attempting to find HardwareInterface::getBatteryLevel vtable offset");
+        nh_log("HardwareInterface::getBatteryLevel() pointer is: %p", (uintptr_t*)HardwareInterface__getBatteryLevel);
+
+        for (int offset = 0; offset < 8 || vptr[offset] != nullptr; ++offset) {
+            uintptr_t* f = vptr[offset];
+            //nh_log("Offset: %d    Pointer: %p", offset, f);
+            if (f == (uintptr_t*)HardwareInterface__getBatteryLevel) {
+                nh_log("Offset found at %d", offset);
+                HardwareInterface* hi = HardwareFactory__sharedInstance();
+                auto hi_vptr = (VPtr*)hi;
+                nh_log("hi_vtable = %p", hi_vptr->v);
+                HardwareInterfaceDerived__getBatteryLevel = (decltype(HardwareInterfaceDerived__getBatteryLevel))hi_vptr->v[offset];
+                nh_log("bl = %p", HardwareInterfaceDerived__getBatteryLevel);
                 break;
             }
         }
     }
-    if (batteryCapFilename.isEmpty()) {
-        return battery;
+    if (HardwareInterfaceDerived__getBatteryLevel) {
+        battery = HardwareInterfaceDerived__getBatteryLevel(HardwareFactory__sharedInstance());
     }
-    QFile bcFile;
-    bcFile.setFileName(batteryCapFilename);
-    if (bcFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        bool ok = false;
-        battery = bcFile.readAll().trimmed().toInt(&ok);
-        if (!ok) {
-            nh_log("failed to get battery level");
-            battery = 100;
-        }
-    }
+    nh_log("Battery level = %d", battery);
     return battery;
 }
 
