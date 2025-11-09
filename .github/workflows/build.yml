@@ -22,7 +22,7 @@ jobs:
       run: make clean && make all koboroot
 
     - name: Upload KoboRoot
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v5
       with:
         name: NickelClock-${{ env.VERSION }}
         path: KoboRoot.tgz
