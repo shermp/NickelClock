@@ -31,8 +31,6 @@ NC *nc = nullptr;
 // This is somewhat arbitrary, but seems a good place to get
 // access to the ReadingView after it has been created.
 void (*ReadingView__ReaderIsDoneLoading)(ReadingView *_this);
-// TimeLabel is what the status bar uses to show the time
-TimeLabel *(*TimeLabel__TimeLabel)(TimeLabel *_this, QWidget *parent);
 
 HardwareInterface *(*HardwareFactory__sharedInstance)();
 N3BatteryStatusLabel *(*N3BatteryStatusLabel__N3BatteryStatusLabel)(N3BatteryStatusLabel* _this, QWidget *parent);
@@ -58,11 +56,6 @@ static struct nh_hook NickelClockHook[] = {
 
 static struct nh_dlsym NickelClockDlsym[] = {
     {
-        .name    = "_ZN9TimeLabelC1EP7QWidget",
-        .out     = nh_symoutptr(TimeLabel__TimeLabel),
-        .desc    = "TimeLabel::TimeLabel()"
-    },
-    {
         .name    = "_ZN15HardwareFactory14sharedInstanceEv",
         .out     = nh_symoutptr(HardwareFactory__sharedInstance),
         .desc    = "HardwareFactory::sharedInstance()"
@@ -71,6 +64,21 @@ static struct nh_dlsym NickelClockDlsym[] = {
         .name    = "_ZN20N3BatteryStatusLabelC1EP7QWidget",
         .out     = nh_symoutptr(N3BatteryStatusLabel__N3BatteryStatusLabel),
         .desc    = "N3BatteryStatusLabel::N3BatteryStatusLabel()"
+    },
+    {
+        .name    = "_ZN10PowerTimerC2ERK7QStringP7QObject",
+        .out     = nh_symoutptr(PowerTimer__PowerTimer),
+        .desc    = "PowerTimer::PowerTimer()"
+    },
+    {
+        .name    = "_ZN10PowerTimerD1Ev",
+        .out     = nh_symoutptr(PowerTimer__PowerTimer_Destructor),
+        .desc    = "PowerTimer::~PowerTimer()"
+    },
+    {
+        .name    = "_ZN10PowerTimer6fireInEi",
+        .out     = nh_symoutptr(PowerTimer__fireIn),
+        .desc    = "PowerTimer::fireIn(int)"
     },
     {0},
 };
@@ -193,7 +201,7 @@ void NC::addItemsToFooter(ReadingView *rv)
         bool lw = false;
         bool rw = false;
         if (settings.clockInPlacement(p)) {
-            TimeLabel *tl = createTimeLabel();
+            auto *tl = createTimeLabel();
             if (settings.clockPosition() == Left) {
                 layout->insertWidget(0, tl, 1, Qt::AlignLeft);
                 lw = true;
@@ -201,6 +209,8 @@ void NC::addItemsToFooter(ReadingView *rv)
                 layout->addWidget(tl, 1, Qt::AlignRight);
                 rw = true;
             }
+            tl->setEvFilterObj(rv);
+            rv->installEventFilter(tl);
         }
         if (settings.batteryInPlacement(p)) {
             QWidget *bl = createBatteryWidget();
@@ -239,10 +249,9 @@ void NC::setFooterStylesheet(ReadingFooter *rf)
     rf->setStyleSheet(ss.replace(footerMarginRe, s));
 }
 
-TimeLabel* NC::createTimeLabel()
+NCTimeLabel* NC::createTimeLabel()
 {
-    TimeLabel *tl = (TimeLabel*) ::operator new (128); // Actual size 88 bytes
-    TimeLabel__TimeLabel(tl, nullptr);
+    NCTimeLabel *tl = new NCTimeLabel(true);
     tl->setObjectName(nc_widget_name);
     auto hAlign = settings.clockPosition() == Left ? Qt::AlignLeft : Qt::AlignRight;
     tl->setAlignment(hAlign | Qt::AlignVCenter);

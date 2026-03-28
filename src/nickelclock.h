@@ -10,11 +10,11 @@
 
 #include "nc_common.h"
 #include "nc_settings.h"
+#include "nc_time.h"
 
 typedef QObject HardwareInterface;
 typedef QWidget ReadingView;
 typedef QWidget ReadingFooter;
-typedef QLabel TimeLabel;
 typedef QLabel TouchLabel;
 typedef QLabel N3BatteryStatusLabel;
 
@@ -39,7 +39,7 @@ class NC : public QObject
         void getFooterStylesheet();
         void createNCLabelStylesheet();
         QWidget* createBatteryWidget();
-        TimeLabel* createTimeLabel();
+        NCTimeLabel* createTimeLabel();
         int getBatteryLevel();
 };
 
