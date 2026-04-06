@@ -20,20 +20,12 @@
 const char nc_qt_property[] = "NickelClock";
 const char nc_widget_name[] = "ncLabelWidget";
 
-const char* battery_cap_files[] = {
-    "/sys/class/power_supply/battery/capacity",
-    "/sys/class/power_supply/mc13892_bat/capacity",
-    "/sys/class/power_supply/bd71827_bat/capacity"
-};
-
 NC *nc = nullptr;
 
 // This is somewhat arbitrary, but seems a good place to get
 // access to the ReadingView after it has been created.
 void (*ReadingView__ReaderIsDoneLoading)(ReadingView *_this);
-
-HardwareInterface *(*HardwareFactory__sharedInstance)();
-N3BatteryStatusLabel *(*N3BatteryStatusLabel__N3BatteryStatusLabel)(N3BatteryStatusLabel* _this, QWidget *parent);
+bool (*ReadingView__canEnableDarkMode)(ReadingView *_this);
 
 static struct nh_info NickelClock = {
     .name           = "NickelClock",
@@ -61,9 +53,18 @@ static struct nh_dlsym NickelClockDlsym[] = {
         .desc    = "HardwareFactory::sharedInstance()"
     },
     {
-        .name    = "_ZN20N3BatteryStatusLabelC1EP7QWidget",
-        .out     = nh_symoutptr(N3BatteryStatusLabel__N3BatteryStatusLabel),
-        .desc    = "N3BatteryStatusLabel::N3BatteryStatusLabel()"
+        .name    = "_ZTV17HardwareInterface",
+        .out     = nh_symoutptr(HardwareInterface__vtable),
+        .desc    = "HardwareInterface::vtable"
+    },
+    {   .name    = "_ZNK17HardwareInterface15getBatteryLevelEv",
+        .out     = nh_symoutptr(HardwareInterface__getBatteryLevel),
+        .desc    = "HardwareInterface::getBatteryLevel()",
+    },
+    {
+        .name    = "_ZN17HardwareInterface13chargingStateEv",
+        .out     = nh_symoutptr(HardwareInterface__chargingState),
+        .desc    = "HardwareInterface::chargingState()",
     },
     {
         .name    = "_ZN10PowerTimerC2ERK7QStringP7QObject",
@@ -79,6 +80,12 @@ static struct nh_dlsym NickelClockDlsym[] = {
         .name    = "_ZN10PowerTimer6fireInEi",
         .out     = nh_symoutptr(PowerTimer__fireIn),
         .desc    = "PowerTimer::fireIn(int)"
+    },
+    {
+        .name    = "_ZN11ReadingView17canEnableDarkModeEv",
+        .out     = nh_symoutptr(ReadingView__canEnableDarkMode),
+        .desc    = "ReadingView::canEnableDarkMode()",
+        .optional= true
     },
     {0},
 };
@@ -122,10 +129,24 @@ NC::NC(QRect const& screenGeom)
             : QObject(nullptr), 
               settings(screenGeom),
               footerMarginRe("qproperty-footerMargin:\\s*\\d+;"),
-              scrGeom(screenGeom)
+              scrGeom(screenGeom),
+              readingView(nullptr)
 {
     getFooterStylesheet();
     createNCLabelStylesheet();
+}
+
+void NC::setReadingView(ReadingView *rv)
+{
+    readingView = rv;
+}
+
+void NC::onDarkModeChanged()
+{
+    nh_log("onDarkModeChanged() slot invoked");
+    if (ReadingView__canEnableDarkMode) {
+        emit darkModeChanged(ReadingView__canEnableDarkMode(readingView));
+    }
 }
 
 void NC::getFooterStylesheet()
@@ -167,7 +188,7 @@ void NC::addItemsToFooter(ReadingView *rv)
 {
     for (auto p : {Header, Footer}) {
         const char *fName = p == Header ? "header" : "footer";
-        ReadingFooter *rf = rv->findChild<ReadingFooter*>(fName);
+        ReadingFooter *rf = readingView->findChild<ReadingFooter*>(fName);
         if (!rf) {
             nh_log("could not find %s", fName);
             continue;
@@ -210,10 +231,10 @@ void NC::addItemsToFooter(ReadingView *rv)
                 rw = true;
             }
             tl->setEvFilterObj(rv);
-            rv->installEventFilter(tl);
+            readingView->installEventFilter(tl);
         }
         if (settings.batteryInPlacement(p)) {
-            QWidget *bl = createBatteryWidget();
+            auto *bl = createBatteryWidget();
             if (settings.batteryPosition() == Left) {
                 layout->insertWidget(0, bl, 1, Qt::AlignLeft);
                 lw = true;
@@ -221,6 +242,8 @@ void NC::addItemsToFooter(ReadingView *rv)
                 layout->addWidget(bl, 1, Qt::AlignRight);
                 rw = true;
             }
+            bl->setEvFilterObj(rv);
+            readingView->installEventFilter(bl);
         }
         if (!lw)
             layout->insertStretch(0, 1);
@@ -229,6 +252,7 @@ void NC::addItemsToFooter(ReadingView *rv)
 
         rf->setProperty(nc_qt_property, true);
     }
+    onDarkModeChanged();
 }
 
 // Nickel sometimes polishes the ReadingFooter widget, which overrides settable 
@@ -260,78 +284,28 @@ NCTimeLabel* NC::createTimeLabel()
     return tl;
 }
 
-QWidget* NC::createBatteryWidget()
+NCBatteryLabel* NC::createBatteryWidget()
 {
     BatteryType type = settings.batteryType();
-    QWidget *battery = new QWidget();
-    QHBoxLayout *l = new QHBoxLayout();
-    NCBatteryLabel *level = nullptr;
-    N3BatteryStatusLabel *icon = nullptr;
+    QString level_fmt = settings.batteryLabel();
+    bool level_enabled = (type == Level || type == Both);
+    bool icon_enabled = (type == Icon || type == Both);
+    NCBatteryLabel *battery = new NCBatteryLabel(level_enabled, icon_enabled, level_fmt, false);
 
-    if (type == Level || type == Both) {
-        int initLevel = getBatteryLevel();
-        level = new NCBatteryLabel(initLevel, settings.batteryLabel());
-        level->setStyleSheet(ncLabelStylesheet());
-        l->addWidget(level, 0, Qt::AlignVCenter);
-    }
-
-    if (type == Icon || type == Both) {
-        icon = (N3BatteryStatusLabel*) ::operator new (256); // Actual size 208 bytes
-        N3BatteryStatusLabel__N3BatteryStatusLabel(icon, nullptr);
-        l->addWidget(icon, 0, Qt::AlignVCenter);
-    }
-
-    l->setContentsMargins(0, 0, 0, 0);
-    battery->setLayout(l);
-    battery->setStyleSheet("padding: 0px; margin: 0px; background-color: transparent;");
-    battery->show();
-    return battery;
-}
-
-// Trying to get the battery level out of Nickel seems to be more trouble
-// than it's worth, therefore get it via sysfs
-int NC::getBatteryLevel()
-{
-    int battery = 100;
-    if (batteryCapFilename.isEmpty()) {
-        for (auto file_name : battery_cap_files) {
-            if (QFile::exists(file_name)) {
-                batteryCapFilename = file_name;
-                break;
-            }
+    auto hAlign = settings.batteryPosition() == Left ? Qt::AlignLeft : Qt::AlignRight;
+    for (auto l : {battery->getLabel(), battery->getIcon()}) {
+        if (l) {
+            l->setObjectName(nc_widget_name);
+            l->setAlignment(hAlign | Qt::AlignVCenter);
+            l->setStyleSheet(ncLabelStylesheet());
+            set_extra_props(l);
         }
     }
-    if (batteryCapFilename.isEmpty()) {
-        return battery;
-    }
-    QFile bcFile;
-    bcFile.setFileName(batteryCapFilename);
-    if (bcFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        bool ok = false;
-        battery = bcFile.readAll().trimmed().toInt(&ok);
-        if (!ok) {
-            nh_log("failed to get battery level");
-            battery = 100;
-        }
-    }
+    battery->setObjectName(nc_widget_name);
+    battery->setStyleSheet(ncLabelStylesheet());
+    set_extra_props(battery);
+    QObject::connect(this, &NC::darkModeChanged, battery, &NCBatteryLabel::onDarkModeChanged, Qt::UniqueConnection);
     return battery;
-}
-
-NCBatteryLabel::NCBatteryLabel(int initLevel, QString const& lbl, QWidget *parent) 
-    : QLabel(parent), label(lbl)
-{
-    setBatteryLevel(initLevel);
-    setObjectName(nc_widget_name);
-    set_extra_props(this);
-    HardwareInterface *hw = HardwareFactory__sharedInstance();
-    if (!connect(hw, SIGNAL(battery_level(int)), this, SLOT(setBatteryLevel(int))))
-        nh_log("Failed to connect battery_level signal to label");
-}
-
-void NCBatteryLabel::setBatteryLevel(int level)
-{
-    QString txt = label.arg(level);
-    setText(txt);
 }
 
 // On recent 4.x firmware versions, the header and footer are setup in 
@@ -340,7 +314,11 @@ void NCBatteryLabel::setBatteryLevel(int level)
 extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(ReadingView *_this) 
 {
     nc->settings.syncSettings();
+    nc->setReadingView(_this);
     nc->addItemsToFooter(_this);
+    if (!QObject::connect(_this, SIGNAL(darkModeChangedSignal()), nc, SLOT(onDarkModeChanged()), Qt::UniqueConnection)) {
+        nh_log("Connect to ReadingView::darkModeChangedSignal() failed");
+    }
     if (nc->settings.debugEnabled()) {
         nh_dump_log();
     }

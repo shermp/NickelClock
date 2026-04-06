@@ -11,12 +11,12 @@
 #include "nc_common.h"
 #include "nc_settings.h"
 #include "nc_time.h"
+#include "nc_battery.h"
 
 typedef QObject HardwareInterface;
 typedef QWidget ReadingView;
 typedef QWidget ReadingFooter;
 typedef QLabel TouchLabel;
-typedef QLabel N3BatteryStatusLabel;
 
 class NC : public QObject
 {
@@ -25,9 +25,17 @@ class NC : public QObject
         NCSettings settings;
         
         NC(QRect const& screenGeom);
+        void setReadingView(ReadingView *rv);
         void addItemsToFooter(ReadingView *rv);
         void setFooterStylesheet(ReadingFooter *rf);
         QString const& ncLabelStylesheet();
+    
+    public slots:
+        void onDarkModeChanged();
+
+    signals:
+        void darkModeChanged(bool enabled);
+
     private:
         int origFooterMargin = -1;
         QString origFooterStylesheet;
@@ -35,23 +43,12 @@ class NC : public QObject
         QRegularExpression footerMarginRe;
         QString batteryCapFilename;
         QRect scrGeom;
+        ReadingView *readingView;
         void updateFooterMargins(QLayout *layout);
         void getFooterStylesheet();
         void createNCLabelStylesheet();
-        QWidget* createBatteryWidget();
+        NCBatteryLabel* createBatteryWidget();
         NCTimeLabel* createTimeLabel();
-        int getBatteryLevel();
-};
-
-class NCBatteryLabel : public QLabel
-{
-    Q_OBJECT
-    public:
-        NCBatteryLabel(int initLevel, QString const& label, QWidget *parent = nullptr);
-    public Q_SLOTS:
-        void setBatteryLevel(int level);
-    private:
-        QString label;
 };
 
 #endif
