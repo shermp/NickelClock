@@ -19,19 +19,17 @@ class NCTimeLabel : public QLabel
     Q_OBJECT
 public:
     NCTimeLabel(bool onlyUpdateOnParent, QWidget *parent = nullptr);
-    ~NCTimeLabel();
+    ~NCTimeLabel() override;
 
     void setEvFilterObj(QObject* obj);
 
-public Q_SLOTS:
+public slots:
     void setTime();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
 
 private:
-
-    unsigned char pw_timer_obj[0x38 * 2] = {};
     PowerTimer* pw_timer = nullptr;
 
     QTime curr_time;

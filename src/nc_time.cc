@@ -11,7 +11,7 @@ NCTimeLabel::NCTimeLabel(bool onlyUpdateOnParent, QWidget *parent) : QLabel(pare
                                                                    paint_enabled(false),
                                                                    ev_filter_obj(nullptr)
 {
-    pw_timer = reinterpret_cast<PowerTimer*>(pw_timer_obj);
+    pw_timer = reinterpret_cast<PowerTimer*>(::operator new(0x38 * 2));
 
     if (PowerTimer__PowerTimer) {
         PowerTimer__PowerTimer(pw_timer, QStringLiteral("nc_time_label"), nullptr);
@@ -26,8 +26,7 @@ NCTimeLabel::~NCTimeLabel()
     if (PowerTimer__PowerTimer_Destructor) {
         PowerTimer__PowerTimer_Destructor(pw_timer);
     }
-
-    pw_timer = {};
+    ::operator delete(pw_timer);
 }
 
 void NCTimeLabel::setEvFilterObj(QObject *obj)
