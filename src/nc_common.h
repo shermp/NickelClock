@@ -10,5 +10,6 @@ enum Placement { Header, Footer };
 enum Widget { Clock, Battery };
 enum BatteryType { Level, Icon, Both };
 enum Margin { Auto = -1 };
+enum Update { Immediate, ContentChange };
 
 #endif // NC_COMMON_H

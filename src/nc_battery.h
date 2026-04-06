@@ -17,7 +17,7 @@ class NCBatteryLabel : public QFrame
     Q_OBJECT
 
 public:
-    NCBatteryLabel(bool text_en, bool icon_en, QString const& text_f, bool onlyUpdateOnParent, QWidget* parent = nullptr);
+    NCBatteryLabel(bool text_en, bool icon_en, QString const& text_f, bool onlyUpdateOnChange, QWidget* parent = nullptr);
     ~NCBatteryLabel() override;
 
     void setEvFilterObj(QObject* obj);
@@ -48,7 +48,7 @@ private:
 
     bool is_charging;
 
-    bool only_update_on_parent;
+    bool only_update_on_change;
     QObject* ev_filter_obj;
 
     bool dark_mode_enabled;

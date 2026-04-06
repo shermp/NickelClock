@@ -18,7 +18,7 @@ class NCTimeLabel : public QLabel
 {
     Q_OBJECT
 public:
-    NCTimeLabel(bool onlyUpdateOnParent, QWidget *parent = nullptr);
+    NCTimeLabel(bool onlyUpdateOnChange, QString const& fmt, QWidget *parent = nullptr);
     ~NCTimeLabel() override;
 
     void setEvFilterObj(QObject* obj);
@@ -33,7 +33,8 @@ private:
     PowerTimer* pw_timer = nullptr;
 
     QTime curr_time;
-    bool only_update_on_parent;
+    QString format;
+    bool only_update_on_change;
     bool paint_enabled;
     QObject* ev_filter_obj;
 };

@@ -60,13 +60,13 @@ static int get_battery_level_index(int level)
     return static_cast<int>(index);
 }
 
-NCBatteryLabel::NCBatteryLabel(bool text_en, bool icon_en, QString const& text_f, bool onlyUpdateOnParent, QWidget *parent)
+NCBatteryLabel::NCBatteryLabel(bool text_en, bool icon_en, QString const& text_f, bool onlyUpdateOnChange, QWidget *parent)
     : QFrame(parent),
       text_label(nullptr),
       icon(nullptr),
       text_fmt(text_f),
       is_charging(false),
-      only_update_on_parent(onlyUpdateOnParent),
+      only_update_on_change(onlyUpdateOnChange),
       ev_filter_obj(nullptr),
       dark_mode_enabled(false)
 {
@@ -125,7 +125,7 @@ void NCBatteryLabel::onBatteryLevel(int level)
 {
     if (level != battery_level) {
         battery_level = level;
-        if (!only_update_on_parent) {
+        if (!only_update_on_change) {
             setLabels();
         }
     }
@@ -135,7 +135,7 @@ void NCBatteryLabel::onUsbPlugged()
 {
     if (!is_charging) {
         is_charging = true;
-        if (!only_update_on_parent) {
+        if (!only_update_on_change) {
             setLabels();
         }
     }
@@ -145,7 +145,7 @@ void NCBatteryLabel::onUsbUnplugged()
 {
     if (is_charging) {
         is_charging = false;
-        if (!only_update_on_parent) {
+        if (!only_update_on_change) {
             setLabels();
         }
     }
@@ -154,14 +154,14 @@ void NCBatteryLabel::onUsbUnplugged()
 void NCBatteryLabel::onDarkModeChanged(bool enabled)
 {
     dark_mode_enabled = enabled;
-    if (!only_update_on_parent) {
+    if (!only_update_on_change) {
         setLabels();
     }
 }
 
 bool NCBatteryLabel::eventFilter(QObject *obj, QEvent *event)
 {
-    if (only_update_on_parent) {
+    if (only_update_on_change) {
         if (obj == ev_filter_obj && event->type() == QEvent::Paint) {
             QPaintEvent* pe = static_cast<QPaintEvent*>(event);
             if (pe->rect().width() != contentsRect().width() &&

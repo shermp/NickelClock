@@ -275,7 +275,9 @@ void NC::setFooterStylesheet(ReadingFooter *rf)
 
 NCTimeLabel* NC::createTimeLabel()
 {
-    NCTimeLabel *tl = new NCTimeLabel(true);
+    bool update_on_content_change = settings.clockUpdate() == Update::ContentChange;
+    QString clock_fmt = settings.clockFormat();
+    NCTimeLabel *tl = new NCTimeLabel(update_on_content_change, clock_fmt);
     tl->setObjectName(nc_widget_name);
     auto hAlign = settings.clockPosition() == Left ? Qt::AlignLeft : Qt::AlignRight;
     tl->setAlignment(hAlign | Qt::AlignVCenter);
@@ -290,7 +292,8 @@ NCBatteryLabel* NC::createBatteryWidget()
     QString level_fmt = settings.batteryLabel();
     bool level_enabled = (type == Level || type == Both);
     bool icon_enabled = (type == Icon || type == Both);
-    NCBatteryLabel *battery = new NCBatteryLabel(level_enabled, icon_enabled, level_fmt, false);
+    bool update_on_content_change = settings.batteryUpdate() == Update::ContentChange;
+    NCBatteryLabel *battery = new NCBatteryLabel(level_enabled, icon_enabled, level_fmt, update_on_content_change);
 
     auto hAlign = settings.batteryPosition() == Left ? Qt::AlignLeft : Qt::AlignRight;
     for (auto l : {battery->getLabel(), battery->getIcon()}) {

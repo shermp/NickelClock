@@ -20,6 +20,8 @@ void NCSettings::syncSettings()
     QString defPos = SL(Right);
     QString defPlace = SL(Header);
     QString defMargin = SL(Auto);
+    QString defUpdate = SL(Immediate);
+
     if (lPos == "left")
         defPos = SL(Left);
     if (lPlace == "footer")
@@ -44,12 +46,19 @@ void NCSettings::syncSettings()
 
         QString pos = settings.value(SL(Position), defPos).toString();
         QString place = settings.value(SL(Placement), defPlace).toString();
+        QString up = settings.value(SL(Update), defUpdate).toString();
+
         if (pos != SL(Left) && pos != SL(Right))
             pos = SL(Right);
         if (place != SL(Header) && place != SL(Footer))
             place = SL(Header);
+        if (up != SL(Immediate) && up != SL(ContentChange)) {
+            up = SL(Immediate);
+        }
+        
         settings.setValue(SL(Position), pos);
         settings.setValue(SL(Placement), place);
+        settings.setValue(SL(Update), up);
 
         if (g == SL(Battery)) {
             QString type = settings.value(SL(BatteryType), SL(Level)).toString();
@@ -61,6 +70,11 @@ void NCSettings::syncSettings()
             if (!label.contains("%1")) 
                 label = QSL("%1%");
             settings.setValue(batteryLabelKey, label);
+        }
+
+        if (g == SL(Clock)) {
+            QString label = settings.value(clockFormatKey, QSL("h:mm ap")).toString();
+            settings.setValue(clockFormatKey, label);
         }
 
         settings.endGroup();
@@ -88,6 +102,8 @@ Position NCSettings::clockPosition() { return position(SL(Clock)); }
 Position NCSettings::batteryPosition() { return position(SL(Battery)); }
 Placement NCSettings::clockPlacement() { return placement(SL(Clock)); }
 Placement NCSettings::batteryPlacement() { return placement(SL(Battery)); }
+Update NCSettings::clockUpdate() { return update(SL(Clock)) ;}
+Update NCSettings::batteryUpdate() { return update(SL(Battery)); }
 
 bool NCSettings::clockInPlacement(Placement const p)
 {
@@ -113,6 +129,13 @@ Placement NCSettings::placement(QString const& group)
     return place == SL(Header) ? Header : Footer;
 }
 
+Update NCSettings::update(QString const &group)
+{
+    QString key = QSL("%1/%2").arg(group).arg(SL(Update));
+    QString update = settings.value(key).toString();
+    return update == SL(Immediate) ? Immediate : ContentChange;
+}
+
 bool NCSettings::clockEnabled() { return groupEnabled(SL(Clock)); }
 bool NCSettings::batteryEnabled() { return groupEnabled(SL(Battery)); }
 
@@ -133,6 +156,11 @@ BatteryType NCSettings::batteryType()
 QString NCSettings::batteryLabel()
 {
     return settings.value(QSL("%1/%2").arg(SL(Battery)).arg(batteryLabelKey)).toString();
+}
+
+QString NCSettings::clockFormat()
+{
+    return settings.value(QSL("%1/%2").arg(SL(Clock)).arg(clockFormatKey)).toString();
 }
 
 int NCSettings::margin()

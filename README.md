@@ -42,45 +42,54 @@ and the default settings file is as follows:
 
 ```ini
 [General]
+Debug=false
 Margin=Auto
 
 [Battery]
 BatteryType=Level
 Enabled=false
-Placement=Header
-Position=Right
 LevelTemplate=%1%
+Placement=Header
+Position=Left
+Update=Immediate
 
 [Clock]
+ClockTemplate=h:mm ap
 Enabled=true
 Placement=Header
 Position=Right
+Update=Immediate
 
 ```
 The following settings may be set. **Note that entries are case sensitive**:
 
 ### [General] settings
 
-|Setting|Values|
-|-------|------|
-|`Margin`|`Auto`, or any whole number greater than zero, up to a quarter of your screen width.|
+|Setting|Values|Detail|
+|-------|------|------|
+|`Margin`|`Auto`, `<n>` | Where `<n>` is any whole number greater than zero, up to a quarter of your screen width.|
 
 ### [Clock] and [Battery] settings
 
-|Setting|Values|
-|-------|------|
-|`Placement`|`Header`, `Footer`|
-|`Position` |`Left`, `Right`|
-|`Enabled`  |`true`, `false`|
+|Setting|Values|Detail|
+|-------|------|------|
+|`Placement`|`Header`, `Footer`|Whether to place the battery or clock in the header or footer.|
+|`Position` |`Left`, `Right`|Which side of the header or footer to place the battery or clock.|
+|`Enabled`  |`true`, `false`|Controls if the battery or clock is shown.|
+|`Update`   |`Immediate`, `ContentChange`|Controls when the battery or clock updates its display. `Immediate`: Update when the time or battery level changes. `ContentChange`: Only updates when other content changes (such as a page turn).|
 
 ### [Battery] settings
 
-|Setting|Values|
-|-------|------|
-|`BatteryType`|`Level`, `Icon`, `Both`|
-|`LevelTemplate`|Any string that contains `%1`|
+|Setting|Values|Detail|
+|-------|------|------|
+|`BatteryType`|`Level`, `Icon`, `Both`|`Level`: Only show the battery level text. `Icon`: Only show the battery icon. `Both`: Show both level text and icon together.|
+|`LevelTemplate`|Any string that contains `%1`|Defaults to `%1% (eg: 80%)|
 
-The battery icon is not compatible with dark mode, the icon is not inverted.
+### [Clock] settings
+
+|Setting|Values|Detail|
+|-------|------|------|
+|`ClockTemplate`|Any string that contains expressions in table found [here](https://doc.qt.io/qt-6/qtime.html#toString)|Allows changing how time is displayed. Defaults to `h:mm ap` (eg: 4:05 pm)|
 
 Setting both clock and battery level to the same placement and position is 
 not supported, and the result will be neither showing.
