@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QWidget>
 #include <QLabel>
+#include <QPointer>
 #include <QRegularExpression>
 #include <QString>
 #include <QFrame>
@@ -13,6 +14,8 @@
 #include "nc_battery.h"
 
 typedef QObject HardwareInterface;
+typedef QObject Device;
+typedef QObject SelectionController;
 typedef QWidget ReadingView;
 typedef QWidget ReadingFooter;
 typedef QLabel TimeLabel;
@@ -24,7 +27,8 @@ class NC : public QObject
     Q_OBJECT
     public:
         NCSettings settings;
-        
+        QPointer<QWidget> reading_view;
+
         NC(QRect const& screenGeom);
         void setReadingView(ReadingView *rv);
         void addItemsToFooter(ReadingView *rv);
@@ -33,6 +37,7 @@ class NC : public QObject
 
     public slots:
         void onDarkModeChanged();
+        void onFooterMenuClosed();
 
     signals:
         void darkModeChanged(bool enabled);

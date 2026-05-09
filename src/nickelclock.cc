@@ -11,6 +11,7 @@
 #include <QSettings>
 #include <QMargins>
 #include <QScreen>
+#include <QMetaEnum>
 
 #include "nc_common.h"
 #include "nickelclock.h"
@@ -21,6 +22,7 @@ const char nc_qt_property[] = "NickelClock";
 const char nc_widget_name[] = "ncLabelWidget";
 
 NC *nc = nullptr;
+static bool has_color_display = false;
 
 // This is somewhat arbitrary, but seems a good place to get
 // access to the ReadingView after it has been created.
@@ -32,6 +34,9 @@ bool (*ReadingView__canEnableDarkMode)(ReadingView *_this);
 
 // TimeLabel is what the status bar uses to show the time
 TimeLabel *(*TimeLabel__TimeLabel)(TimeLabel *_this, QWidget *parent);
+
+Device *(*Device__getCurrentDevice)();
+bool (*Device__hasColorDisplay)(Device *_this);
 
 static struct nh_info NickelClock = {
     .name           = "NickelClock",
@@ -83,6 +88,18 @@ static struct nh_dlsym NickelClockDlsym[] = {
         .desc    = "ReadingView::canEnableDarkMode()",
         .optional= true
     },
+    {
+        .name    = "_ZNK6Device15hasColorDisplayEv",
+        .out     = nh_symoutptr(Device__hasColorDisplay),
+        .desc    = "Device::hasColorDisplay()",
+        .optional= true,
+    },
+    {
+        .name    = "_ZN6Device16getCurrentDeviceEv",
+        .out     = nh_symoutptr(Device__getCurrentDevice),
+        .desc    = "Device::getCurrentDevice()",
+        .optional= true,
+    },
     {0},
 };
 
@@ -93,6 +110,11 @@ static int nc_init()
     nc = new NC(geom);
     if (!nc)
         return 1;
+
+    if(Device__hasColorDisplay && Device__getCurrentDevice) {
+        has_color_display = Device__hasColorDisplay(Device__getCurrentDevice());
+    }
+
     return 0;
 }
 
@@ -298,6 +320,71 @@ NCBatteryLabel* NC::createBatteryWidget()
     return battery;
 }
 
+// On colour Kobos, SelectionController::onInlineDefinitionResults adds two
+// extra attrs (the B&W Kobos have 4, colour have 6) to the ReadingView when the
+// dictionary popup appears, which enable "full" refreshes (the ones that flash
+// the elements before redrawing) and never clears them. Because it never clears
+// them, our label that refreshes every minute also flashes every minute, which
+// is distracting.
+//
+// We hook selectionModeOff and fix this, but the attrs are custom in Kobo's Qt
+// so we need to jump through some hoops to resolve them. Don't just use
+// hardcoded ints as Qt adds more attrs over time and Kobo's extra ones might
+// shift (or not even exist on older firmware)
+static const char* const extraAttrs[] = {
+    "WA_KoboEpdUpdateModeFull",
+    "WA_KoboEpdWfModeGCC16",
+};
+
+// QObject::staticQtMetaObject is protected; re-expose it via a derived class
+// so we can look up Qt namespace enums by name on older Qt (pre-Q_NAMESPACE).
+namespace {
+struct QtMetaAccess : QObject {
+    using QObject::staticQtMetaObject;
+};
+}
+
+static const QVector<Qt::WidgetAttribute>& resolvedExtraAttrs()
+{
+    static const QVector<Qt::WidgetAttribute> v = [] {
+        QVector<Qt::WidgetAttribute> r;
+
+        if(!has_color_display) {
+            nh_log("No color display, not fixing SelectionController");
+            return r;
+        }
+
+        const QMetaObject &mo = QtMetaAccess::staticQtMetaObject;
+        int enumIdx = mo.indexOfEnumerator("WidgetAttribute");
+        if (enumIdx < 0) {
+            nh_log("could not find Qt::WidgetAttribute meta enum");
+            return r;
+        }
+        QMetaEnum me = mo.enumerator(enumIdx);
+        for (auto& name : extraAttrs) {
+            bool ok = false;
+            int value = me.keyToValue(name, &ok);
+            if (ok) {
+                r.push_back(static_cast<Qt::WidgetAttribute>(value));
+                // nh_log("mapped Qt::WidgetAttribute::%s -> 0x%02X", name, value);
+            } else {
+                nh_log("unknown Qt::WidgetAttribute key: %s", name);
+            }
+        }
+        return r;
+    }();
+    return v;
+}
+
+void NC::onFooterMenuClosed()
+{
+    if(reading_view) {
+        for(auto attr : resolvedExtraAttrs()) {
+            reading_view->setAttribute(attr, false);
+        }
+    }
+}
+
 // On recent 4.x firmware versions, the header and footer are setup in 
 // Ui_ReadingView::setupUi(). They are ReadingFooter widgets, with names set to 
 // "header" and "footer". This makes it easy to find them with findChild().
@@ -309,6 +396,24 @@ extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(Read
     if (!QObject::connect(_this, SIGNAL(darkModeChangedSignal()), nc, SLOT(onDarkModeChanged()), Qt::UniqueConnection)) {
         nh_log("Connect to ReadingView::darkModeChangedSignal() failed");
     }
+    nc->reading_view = _this;
+
+    SelectionController* sc = nullptr;
+    auto children = _this->findChildren<QObject*>(QString(), Qt::FindDirectChildrenOnly);
+    for (auto child : children) {
+        if (QLatin1Literal("SelectionController") == child->metaObject()->className()) {
+            sc = child;
+            break;
+        }
+    }
+    if (sc) {
+        if (!QObject::connect(sc, SIGNAL(closeFooterMenu()), nc, SLOT(onFooterMenuClosed()), Qt::UniqueConnection)) {
+            nh_log("Connect to SelectionController::closeFooterMenu() failed");
+        }
+    } else {
+        nh_log("%s", "SelectionController not found");
+    }
+
     if (nc->settings.debugEnabled()) {
         nh_dump_log();
     }
