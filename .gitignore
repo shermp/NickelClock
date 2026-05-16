@@ -11,5 +11,8 @@ compile_commands.json
 /libnickelclock.so
 /src/nickelclock.o
 /src/nc_settings.o
+/src/nc_battery.o
 /src/nickelclock.moc
+/src/nc_battery.moc
 /src/nickelclock.moc.o
+/src/nc_battery.moc.o
