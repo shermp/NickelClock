@@ -26,8 +26,7 @@ public:
 public slots:
     void onDarkModeChanged(bool enabled);
     void onBatteryLevel(int level);
-    void onUsbPlugged();
-    void onUsbUnplugged();
+    void updateBattery();
 
 private:
     QString batteryIconPathName();
@@ -42,6 +41,7 @@ private:
 
     bool is_charging;
     bool dark_mode_enabled;
+    bool dark_mode_changed;
 };
 
 #endif // NC_BATTERY_H

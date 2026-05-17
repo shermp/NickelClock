@@ -66,18 +66,12 @@ NCBatteryLabel::NCBatteryLabel(bool text_en, bool icon_en, QString const& text_f
       text_label(nullptr),
       icon(nullptr),
       text_fmt(text_f),
+      battery_level(0),
+      curr_index(0),
       is_charging(false),
-      dark_mode_enabled(false)
+      dark_mode_enabled(false),
+      dark_mode_changed(false)
 {
-    auto hwi = HardwareFactory__sharedInstance();
-    auto battery_level_fn = get_derived_hw_interface_method<int (*)(HardwareInterface* self)>(HardwareInterface__getBatteryLevel, hwi);
-    auto charging_state_fn = get_derived_hw_interface_method<uint (*)(HardwareInterface* self)>(HardwareInterface__chargingState, hwi);
-
-    battery_level = battery_level_fn(hwi);
-    curr_index = get_battery_level_index(battery_level);
-
-    is_charging = static_cast<bool>(charging_state_fn(hwi));
-
     QHBoxLayout* layout = new QHBoxLayout();
     if (text_en) {
         text_label = new QLabel();
@@ -91,15 +85,19 @@ NCBatteryLabel::NCBatteryLabel(bool text_en, bool icon_en, QString const& text_f
     this->setLayout(layout);
     this->setStyleSheet("padding: 0px; margin: 0px; background-color: transparent;");
 
-    setLabels();
+    auto hwi = HardwareFactory__sharedInstance();
 
     QObject::connect(hwi, SIGNAL(battery_level(int)), this, SLOT(onBatteryLevel(int)));
 
-    QObject::connect(hwi, SIGNAL(usb_plugged()), this, SLOT(onUsbPlugged()));
-    QObject::connect(hwi, SIGNAL(usb_ac_plugged()), this, SLOT(onUsbPlugged()));
+    QObject::connect(hwi, SIGNAL(battery_changed()), this, SLOT(updateBattery()));
 
-    QObject::connect(hwi, SIGNAL(usb_unplugged()), this, SLOT(onUsbUnplugged()));
-    QObject::connect(hwi, SIGNAL(usb_ac_unplugged()), this, SLOT(onUsbUnplugged()));
+    QObject::connect(hwi, SIGNAL(usb_plugged()), this, SLOT(updateBattery()));
+    QObject::connect(hwi, SIGNAL(usb_ac_plugged()), this, SLOT(updateBattery()));
+
+    QObject::connect(hwi, SIGNAL(usb_unplugged()), this, SLOT(updateBattery()));
+    QObject::connect(hwi, SIGNAL(usb_ac_unplugged()), this, SLOT(updateBattery()));
+
+    updateBattery();
 }
 
 NCBatteryLabel::~NCBatteryLabel()
@@ -108,33 +106,34 @@ NCBatteryLabel::~NCBatteryLabel()
 
     QObject::disconnect(hwi, SIGNAL(battery_level(int)), this, SLOT(onBatteryLevel(int)));
 
-    QObject::disconnect(hwi, SIGNAL(usb_plugged()), this, SLOT(onUsbPlugged()));
-    QObject::disconnect(hwi, SIGNAL(usb_ac_plugged()), this, SLOT(onUsbPlugged()));
+    QObject::disconnect(hwi, SIGNAL(battery_changed()), this, SLOT(updateBattery()));
 
-    QObject::disconnect(hwi, SIGNAL(usb_unplugged()), this, SLOT(onUsbUnplugged()));
-    QObject::disconnect(hwi, SIGNAL(usb_ac_unplugged()), this, SLOT(onUsbUnplugged()));
+    QObject::disconnect(hwi, SIGNAL(usb_plugged()), this, SLOT(updateBattery()));
+    QObject::disconnect(hwi, SIGNAL(usb_ac_plugged()), this, SLOT(updateBattery()));
+
+    QObject::disconnect(hwi, SIGNAL(usb_unplugged()), this, SLOT(updateBattery()));
+    QObject::disconnect(hwi, SIGNAL(usb_ac_unplugged()), this, SLOT(updateBattery()));
 }
 
 
 void NCBatteryLabel::onBatteryLevel(int level)
 {
-    if (level != battery_level) {
-        setLabels();
-    }
+    (void)level;
+    updateBattery();
 }
 
-void NCBatteryLabel::onUsbPlugged()
+void NCBatteryLabel::updateBattery()
 {
-    if (!is_charging) {
-        is_charging = true;
-        setLabels();
-    }
-}
+    auto hwi = HardwareFactory__sharedInstance();
+    auto battery_level_fn = get_derived_hw_interface_method<int (*)(HardwareInterface* self)>(HardwareInterface__getBatteryLevel, hwi);
+    auto charging_state_fn = get_derived_hw_interface_method<uint (*)(HardwareInterface* self)>(HardwareInterface__chargingState, hwi);
 
-void NCBatteryLabel::onUsbUnplugged()
-{
-    if (is_charging) {
-        is_charging = false;
+    int bl = battery_level_fn(hwi);
+    bool charging = static_cast<bool>(charging_state_fn(hwi));
+
+    if (bl != battery_level || charging != is_charging || dark_mode_changed) {
+        battery_level = bl;
+        is_charging = charging;
         setLabels();
     }
 }
@@ -142,7 +141,9 @@ void NCBatteryLabel::onUsbUnplugged()
 void NCBatteryLabel::onDarkModeChanged(bool enabled)
 {
     dark_mode_enabled = enabled;
-    setLabels();
+    dark_mode_changed = true;
+    updateBattery();
+    dark_mode_changed = false;
 }
 
 QString NCBatteryLabel::batteryIconPathName()
@@ -161,6 +162,7 @@ void NCBatteryLabel::setLabels()
         text_label->setText(text_fmt.arg(battery_level));
     }
     if (icon) {
+        curr_index = get_battery_level_index(battery_level);
         QImage icon_png(batteryIconPathName());
         if (dark_mode_enabled) {
             icon_png.invertPixels(QImage::InvertRgb);
