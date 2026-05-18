@@ -63,11 +63,11 @@ static int get_battery_level_index(int level)
 
 NCBatteryLabel::NCBatteryLabel(bool text_en, bool icon_en, QString const& text_f, QWidget *parent)
     : QFrame(parent),
+      hwi(nullptr),
       text_label(nullptr),
       icon(nullptr),
       text_fmt(text_f),
       battery_level(0),
-      curr_index(0),
       is_charging(false),
       dark_mode_enabled(false),
       dark_mode_changed(false)
@@ -85,7 +85,9 @@ NCBatteryLabel::NCBatteryLabel(bool text_en, bool icon_en, QString const& text_f
     this->setLayout(layout);
     this->setStyleSheet("padding: 0px; margin: 0px; background-color: transparent;");
 
-    auto hwi = HardwareFactory__sharedInstance();
+    hwi = HardwareFactory__sharedInstance();
+    battery_level_fn = get_derived_hw_interface_method<decltype(battery_level_fn)>(HardwareInterface__getBatteryLevel, hwi);
+    charging_state_fn = get_derived_hw_interface_method<decltype(charging_state_fn)>(HardwareInterface__chargingState, hwi);
 
     QObject::connect(hwi, SIGNAL(battery_level(int)), this, SLOT(onBatteryLevel(int)));
 
@@ -102,8 +104,6 @@ NCBatteryLabel::NCBatteryLabel(bool text_en, bool icon_en, QString const& text_f
 
 NCBatteryLabel::~NCBatteryLabel()
 {
-    auto hwi = HardwareFactory__sharedInstance();
-
     QObject::disconnect(hwi, SIGNAL(battery_level(int)), this, SLOT(onBatteryLevel(int)));
 
     QObject::disconnect(hwi, SIGNAL(battery_changed()), this, SLOT(updateBattery()));
@@ -124,10 +124,6 @@ void NCBatteryLabel::onBatteryLevel(int level)
 
 void NCBatteryLabel::updateBattery()
 {
-    auto hwi = HardwareFactory__sharedInstance();
-    auto battery_level_fn = get_derived_hw_interface_method<int (*)(HardwareInterface* self)>(HardwareInterface__getBatteryLevel, hwi);
-    auto charging_state_fn = get_derived_hw_interface_method<uint (*)(HardwareInterface* self)>(HardwareInterface__chargingState, hwi);
-
     int bl = battery_level_fn(hwi);
     bool charging = static_cast<bool>(charging_state_fn(hwi));
 
@@ -148,10 +144,11 @@ void NCBatteryLabel::onDarkModeChanged(bool enabled)
 
 QString NCBatteryLabel::batteryIconPathName()
 {
+    int index = get_battery_level_index(battery_level);
     if (is_charging) {
-        return QStringLiteral(":/images/statusbar/battery_charging_%1.png").arg(curr_index, 2, 10, QLatin1Char('0'));
+        return QStringLiteral(":/images/statusbar/battery_charging_%1.png").arg(index, 2, 10, QLatin1Char('0'));
     } else {
-        return QStringLiteral(":/images/statusbar/battery_%1.png").arg(curr_index, 2, 10, QLatin1Char('0'));
+        return QStringLiteral(":/images/statusbar/battery_%1.png").arg(index, 2, 10, QLatin1Char('0'));
     }
     return QString();
 }
@@ -162,14 +159,19 @@ void NCBatteryLabel::setLabels()
         text_label->setText(text_fmt.arg(battery_level));
     }
     if (icon) {
-        curr_index = get_battery_level_index(battery_level);
-        QImage icon_png(batteryIconPathName());
-        if (dark_mode_enabled) {
-            icon_png.invertPixels(QImage::InvertRgb);
+        QString icon_path = batteryIconPathName();
+        QString icon_key = dark_mode_enabled ? icon_path + ".inverted" : icon_path;
+
+        if (!icon_cache.contains(icon_key)) {
+            QImage icon_png(icon_path);
+            if (dark_mode_enabled) {
+                icon_png.invertPixels(QImage::InvertRgb);
+            }
+            // The battery icons have quite a large border, so crop to opaque area
+            QPixmap icon_px = QPixmap::fromImage(icon_png);
+            auto bb = QRegion(icon_px.mask()).boundingRect();
+            icon_cache.insert(icon_key, icon_px.copy(bb));
         }
-        // The battery icons have quite a large border, so crop to opaque area
-        QPixmap icon_px = QPixmap::fromImage(icon_png);
-        auto bb = QRegion(icon_px.mask()).boundingRect();
-        icon->setPixmap(icon_px.copy(bb));
+        icon->setPixmap(icon_cache.value(icon_key));
     }
 }
