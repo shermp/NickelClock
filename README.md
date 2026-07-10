@@ -80,7 +80,7 @@ The following settings may be set. **Note that entries are case sensitive**:
 |`BatteryType`|`Level`, `Icon`, `Both`|
 |`LevelTemplate`|Any string that contains `%1`|
 
-The battery icon is not compatible with dark mode, the icon is not inverted.
+The battery icon is inverted automatically when dark mode is enabled.
 
 Setting both clock and battery level to the same placement and position is 
 not supported, and the result will be neither showing.

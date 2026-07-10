@@ -396,6 +396,7 @@ extern "C" __attribute__((visibility("default"))) void _nc_set_header_clock(Read
     if (!QObject::connect(_this, SIGNAL(darkModeChangedSignal()), nc, SLOT(onDarkModeChanged()), Qt::UniqueConnection)) {
         nh_log("Connect to ReadingView::darkModeChangedSignal() failed");
     }
+    nc->onDarkModeChanged();
     nc->reading_view = _this;
 
     SelectionController* sc = nullptr;
